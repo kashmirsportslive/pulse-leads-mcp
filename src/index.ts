@@ -222,7 +222,7 @@ app.get("/", (_req: Request, res: Response) => {
             <h3 style="color: #e2e8f0; margin-top: 32px;">Integration Details for AI Developers</h3>
             <div class="code-box">
               <strong>MCP Endpoint:</strong> POST ${SERVER_URL}/mcp<br/>
-              <strong>Settlement Wallet:</strong> ${MERCHANT_WALLET}<br/>
+              <strong>Settlement Wallet:</strong> 0xacec998f35d926adBD66c60B46cE0AdCd13145bA<br/>
               <strong>Free Evaluation Key:</strong> demo_free_key
             </div>
 
@@ -315,7 +315,7 @@ app.get("/checkout", (req: Request, res: Response) => {
           <div class="crypto-box">
             <strong>Prefer Web3 Settlement?</strong><br/>
             Send 29 USDC (Base EVM 8453) directly to merchant vault:<br/>
-            <code style="color: #38bdf8;">${MERCHANT_WALLET}</code><br/>
+            <code style="color: #38bdf8;">0xacec998f35d926adBD66c60B46cE0AdCd13145bA</code><br/>
             Keys are automatically provisioned on-chain upon receipt.
           </div>
         </div>
