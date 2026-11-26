@@ -205,19 +205,63 @@ app.get("/", (_req: Request, res: Response) => {
             <h1>⚡ PulseLeads Intelligence Gateway</h1>
             <p class="lead">Verified Decision-Maker & Tech Stack Intelligence delivered straight into Claude Desktop, Cursor, and Autonomous AI Agents.</p>
 
-            <div class="pricing-box">
-              <div class="pricing-header">$29 / month &bull; Pro Unlimited Tier</div>
-              <p style="color: #94a3b8; margin: 0 0 12px 0;">Or pay-per-query at $0.10 USDC per resolved contact via Web3 micropayments.</p>
-              <ul class="features">
-                <li>1,000 Verified B2B queries per month</li>
-                <li><strong>Covered Industries:</strong> Real Estate & PropTech, AI Infrastructure, Fintech, Cybersecurity, Healthcare & Logistics</li>
-                <li>Direct C-Suite & VP Decision-Maker verified emails</li>
-                <li>Real-time company hiring triggers and tech stack intelligence</li>
-                <li>Instant MCP API Key activation for Claude Desktop & Cursor</li>
-              </ul>
-              <div class="btn-group">
-                <a class="btn" href="/checkout?plan=pro">Subscribe via Stripe / Card</a>
-                <a class="btn btn-outline" href="/checkout?plan=trial">Get Free Trial Key (3 Credits)</a>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 24px;">
+              <div style="background: #131b2e; border: 1px solid #1e293b; border-radius: 10px; padding: 20px; text-align: left; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <h3 style="margin: 0; color: #94a3b8; font-size: 1.1rem;">Free Trial</h3>
+                  <div style="font-size: 1.6rem; font-weight: bold; color: #f8fafc; margin: 8px 0;">$0</div>
+                  <p style="color: #38bdf8; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">20 Query Credits</p>
+                  <ul class="features" style="font-size: 0.85rem; padding-left: 0; list-style: none;">
+                    <li>Full B2B contact intelligence</li>
+                    <li>Claude Desktop & Cursor ready</li>
+                    <li>Zero credit card required</li>
+                  </ul>
+                </div>
+                <a class="btn btn-outline" style="text-align: center; padding: 10px 16px; margin-top: 14px;" href="/checkout?plan=trial">Get 20 Free Credits</a>
+              </div>
+
+              <div style="background: #131b2e; border: 1px solid #334155; border-radius: 10px; padding: 20px; text-align: left; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <h3 style="margin: 0; color: #38bdf8; font-size: 1.1rem;">Starter</h3>
+                  <div style="font-size: 1.6rem; font-weight: bold; color: #f8fafc; margin: 8px 0;">$9</div>
+                  <p style="color: #4ade80; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">500 Query Credits</p>
+                  <ul class="features" style="font-size: 0.85rem; padding-left: 0; list-style: none;">
+                    <li>500 verified B2B leads</li>
+                    <li>$0.018 per lead inquiry</li>
+                    <li>Instant on-chain activation</li>
+                  </ul>
+                </div>
+                <a class="btn" style="text-align: center; padding: 10px 16px; margin-top: 14px; background: #0284c7;" href="/checkout?plan=starter">Order Starter ($9)</a>
+              </div>
+
+              <div style="background: #172554; border: 2px solid #38bdf8; border-radius: 10px; padding: 20px; text-align: left; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="position: absolute; top: -11px; right: 14px; background: #38bdf8; color: #0b0f19; font-weight: bold; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;">POPULAR</div>
+                <div>
+                  <h3 style="margin: 0; color: #67e8f9; font-size: 1.1rem;">Pro</h3>
+                  <div style="font-size: 1.6rem; font-weight: bold; color: #f8fafc; margin: 8px 0;">$19</div>
+                  <p style="color: #4ade80; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">1,000 Query Credits</p>
+                  <ul class="features" style="font-size: 0.85rem; padding-left: 0; list-style: none;">
+                    <li>1,000 verified decision makers</li>
+                    <li>All 5 enterprise tech verticals</li>
+                    <li>Standard support & high throughput</li>
+                  </ul>
+                </div>
+                <a class="btn" style="text-align: center; padding: 10px 16px; margin-top: 14px; background: #22c55e; color: #0b0f19;" href="/checkout?plan=pro">Order Pro ($19)</a>
+              </div>
+
+              <div style="background: #131b2e; border: 1px solid #eab308; border-radius: 10px; padding: 20px; text-align: left; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="position: absolute; top: -11px; right: 14px; background: #eab308; color: #0b0f19; font-weight: bold; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;">BEST VALUE</div>
+                <div>
+                  <h3 style="margin: 0; color: #fde047; font-size: 1.1rem;">Growth</h3>
+                  <div style="font-size: 1.6rem; font-weight: bold; color: #f8fafc; margin: 8px 0;">$29</div>
+                  <p style="color: #4ade80; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">3,000 Query Credits</p>
+                  <ul class="features" style="font-size: 0.85rem; padding-left: 0; list-style: none;">
+                    <li>3,000 verified leads & emails</li>
+                    <li>Lowest cost: <$0.01 per lead</li>
+                    <li>Priority support & custom webhook</li>
+                  </ul>
+                </div>
+                <a class="btn" style="text-align: center; padding: 10px 16px; margin-top: 14px; background: #eab308; color: #0b0f19;" href="/checkout?plan=growth">Order Growth ($29)</a>
               </div>
             </div>
 
@@ -254,14 +298,14 @@ app.get("/", (_req: Request, res: Response) => {
 
 // Transparent Checkout & Key Generation Page
 app.get("/checkout", (req: Request, res: Response) => {
-  const plan = req.query.plan === "trial" ? "free_trial" : "pro_subscription";
+  const selectedPlan = String(req.query.plan || "pro").toLowerCase();
   
-  if (plan === "free_trial") {
+  if (selectedPlan === "trial" || selectedPlan === "free_trial") {
     const trialKey = `trial_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString(36)}`;
     registerKey({
       key: trialKey,
       plan: "free_trial",
-      creditsRemaining: 3,
+      creditsRemaining: 20,
       createdAt: new Date().toISOString()
     });
 
@@ -280,7 +324,7 @@ app.get("/checkout", (req: Request, res: Response) => {
         <body>
           <div class="box">
             <h2 style="color: #38bdf8; margin-top: 0;">🎉 Free Trial Key Activated!</h2>
-            <p>You have received <strong>3 free query credits</strong> to evaluate the API.</p>
+            <p>You have received <strong>20 free query credits</strong> to evaluate the API.</p>
             <div class="key">${trialKey}</div>
             <p style="color: #94a3b8; font-size: 0.9rem;">Copy this key and paste it into your AI agent or MCP configuration file.</p>
             <br/>
@@ -291,42 +335,88 @@ app.get("/checkout", (req: Request, res: Response) => {
     `);
   }
 
-  // Official Pro Tier checkout modal - Strict Payment Gate
+  // Tier metadata dictionary
+  const TIERS: Record<string, { name: string; price: string; usdc: number; credits: string; desc: string; badge: string; color: string }> = {
+    starter: {
+      name: "Starter Plan",
+      price: "$9.00",
+      usdc: 9,
+      credits: "500 Credits",
+      desc: "Perfect for indie hackers, solo developers, and prototyping.",
+      badge: "Hacker Friendly",
+      color: "#38bdf8"
+    },
+    pro: {
+      name: "Pro Plan",
+      price: "$19.00",
+      usdc: 19,
+      credits: "1,000 Credits",
+      desc: "The standard for growing sales teams and AI agent pipelines.",
+      badge: "Most Popular",
+      color: "#4ade80"
+    },
+    growth: {
+      name: "Growth Plan",
+      price: "$29.00",
+      usdc: 29,
+      credits: "3,000 Credits",
+      desc: "High volume lead scraping with lowest per-contact cost (<$0.01/lead).",
+      badge: "Best Value",
+      color: "#facc15"
+    }
+  };
+
+  const currentTier = TIERS[selectedPlan] || TIERS.pro;
+  const currentPlanKey = TIERS[selectedPlan] ? selectedPlan : "pro";
+
   res.send(`
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Order Pro Plan | PulseLeads</title>
+        <title>Order ${currentTier.name} | PulseLeads</title>
         <style>
           body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; }
-          .box { background: #131b2e; border: 1px solid #1e293b; border-radius: 12px; padding: 36px; max-width: 580px; margin: 0 auto; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-          h2 { color: #4ade80; margin-top: 0; }
-          .price { font-size: 1.8rem; font-weight: bold; color: #f8fafc; margin: 12px 0 24px 0; }
+          .box { background: #131b2e; border: 1px solid #1e293b; border-radius: 12px; padding: 36px; max-width: 600px; margin: 0 auto; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+          h2 { color: ${currentTier.color}; margin-top: 0; }
+          .price { font-size: 1.8rem; font-weight: bold; color: #f8fafc; margin: 8px 0; }
           .form-group { margin-bottom: 18px; text-align: left; }
           label { display: block; color: #94a3b8; font-size: 0.9rem; margin-bottom: 6px; }
           input { width: 100%; padding: 12px; background: #020617; border: 1px solid #334155; border-radius: 6px; color: white; font-size: 1rem; box-sizing: border-box; }
           .btn-submit { width: 100%; background: #22c55e; color: #0b0f19; padding: 14px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
           .btn-submit:hover { background: #16a34a; }
-          .crypto-box { background: #090d16; border: 1px solid #38bdf8; padding: 20px; border-radius: 8px; margin-top: 24px; font-size: 0.9rem; color: #e2e8f0; text-align: left; }
+          .crypto-box { background: #090d16; border: 1px solid #38bdf8; padding: 20px; border-radius: 8px; margin-top: 20px; font-size: 0.9rem; color: #e2e8f0; text-align: left; }
           .crypto-addr { background: #020617; padding: 10px; border-radius: 6px; color: #38bdf8; font-family: monospace; word-break: break-all; margin: 8px 0; border: 1px solid #1e293b; }
           .notice-box { background: #1e1b4b; border: 1px solid #6366f1; padding: 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.88rem; color: #c7d2fe; }
+          .plan-pills { display: flex; gap: 8px; margin-bottom: 20px; }
+          .plan-pill { flex: 1; padding: 10px; border-radius: 6px; text-align: center; text-decoration: none; font-size: 0.85rem; font-weight: bold; border: 1px solid #334155; color: #94a3b8; background: #0b0f19; }
+          .plan-pill.active { border-color: #38bdf8; background: #172554; color: #38bdf8; }
         </style>
       </head>
       <body>
         <div class="box">
-          <h2>🔒 PulseLeads Pro: Official Order</h2>
-          <div class="price">$29.00 / month (1,000 Credits)</div>
+          <div class="plan-pills">
+            <a class="plan-pill ${currentPlanKey === 'starter' ? 'active' : ''}" href="/checkout?plan=starter">Starter &bull; $9 (500)</a>
+            <a class="plan-pill ${currentPlanKey === 'pro' ? 'active' : ''}" href="/checkout?plan=pro">Pro &bull; $19 (1k)</a>
+            <a class="plan-pill ${currentPlanKey === 'growth' ? 'active' : ''}" href="/checkout?plan=growth">Growth &bull; $29 (3k)</a>
+          </div>
+
+          <h2>🔒 PulseLeads: ${currentTier.name}</h2>
+          <div class="price">${currentTier.price} &bull; ${currentTier.credits}</div>
+          <p style="color: #94a3b8; font-size: 0.9rem; margin: 0 0 16px 0;">${currentTier.desc}</p>
 
           <div class="notice-box">
-            🛡️ <strong>Zero-Trust Payment Gate Active:</strong> Pro keys are exclusively generated after verified Stripe payment or on-chain crypto receipt.
+            🛡️ <strong>Zero-Trust Payment Gate Active:</strong> API keys are automatically generated upon confirmed on-chain settlement on Base.
           </div>
 
           <div class="crypto-box">
-            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">Option 1: Instant Web3 Crypto Payment (Base USDC)</h4>
-            <p style="margin: 0 0 8px 0; font-size: 0.85rem; color: #94a3b8;">Send exactly <strong>29 USDC</strong> on Base network (EVM 8453) to the merchant vault:</p>
+            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">Web3 Crypto Payment (Base USDC)</h4>
+            <p style="margin: 0 0 8px 0; font-size: 0.88rem; color: #cbd5e1;">
+              Send exactly <strong>${currentTier.usdc} USDC</strong> on Base network (EVM 8453) to merchant vault:
+            </p>
             <div class="crypto-addr">${MERCHANT_WALLET}</div>
             
             <form action="/verify-payment" method="POST" style="margin-top: 14px;">
+              <input type="hidden" name="plan" value="${currentPlanKey}" />
               <div class="form-group">
                 <label>Your Base Transaction Hash (TxHash)</label>
                 <input type="text" name="txHash" placeholder="0x..." required />
@@ -335,7 +425,7 @@ app.get("/checkout", (req: Request, res: Response) => {
                 <label>Your Work Email (For Receipt & Key Backup)</label>
                 <input type="email" name="email" placeholder="you@company.com" required />
               </div>
-              <button type="submit" class="btn-submit">Verify On-Chain & Activate Key</button>
+              <button type="submit" class="btn-submit">Verify Payment (${currentTier.usdc} USDC) & Get Key</button>
             </form>
           </div>
 
@@ -355,11 +445,12 @@ app.get("/checkout", (req: Request, res: Response) => {
 // Strict Activation handler - ONLY generates key if valid payment proof exists
 app.use(express.urlencoded({ extended: true }));
 app.post("/verify-payment", async (req: Request, res: Response) => {
-  const { txHash, email } = req.body;
+  const { txHash, email, plan } = req.body;
   const cleanTx = String(txHash || "").trim();
+  const selectedPlan = String(plan || "pro").toLowerCase();
 
   // Real-time on-chain verification directly on Base blockchain
-  const result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET);
+  const result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET, selectedPlan);
 
   if (!result.verified) {
     return res.status(400).send(`
@@ -393,11 +484,14 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
   }
 
   // Generate verified key ONLY after confirmed on-chain settlement
-  const newPaidKey = `pulse_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
+  const grantedPlan = result.matchedPlan || "pro";
+  const grantedCredits = result.grantedCredits || 1000;
+  const newPaidKey = `pulse_${grantedPlan}_${Date.now().toString(36)}`;
+
   registerKey({
     key: newPaidKey,
-    plan: "pro_subscription",
-    creditsRemaining: 1000,
+    plan: grantedPlan as any,
+    creditsRemaining: grantedCredits,
     createdAt: new Date().toISOString()
   });
 
@@ -416,12 +510,13 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
       <body>
         <div class="box">
           <h2 style="color: #4ade80; margin-top: 0;">✅ Blockchain Payment Verified & Confirmed!</h2>
-          <p>Base Block: <strong>#${result.blockNumber}</strong></p>
+          <p>Plan Activated: <strong style="color: #38bdf8; text-transform: uppercase;">${grantedPlan} Plan</strong></p>
+          <p>Base Block: <strong>#${result.blockNumber}</strong> &bull; Amount Verified: <strong>$${result.paidAmountUsdc?.toFixed(2)} USDC</strong></p>
           <p>Payer Address: <span style="font-family: monospace; color: #38bdf8;">${result.sender}</span></p>
           <p>Confirmation receipt generated for: <strong>${email || "customer"}</strong>.</p>
           <p>Your Pro API Key has been provisioned:</p>
           <div class="key">${newPaidKey}</div>
-          <p>Credits: <strong>1,000 B2B queries</strong> loaded.</p>
+          <p>Credits: <strong style="color: #4ade80;">${grantedCredits.toLocaleString()} B2B queries</strong> loaded.</p>
           <br/>
           <a class="btn" href="/">Return to Dashboard</a>
         </div>

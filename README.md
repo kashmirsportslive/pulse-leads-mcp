@@ -70,12 +70,13 @@ https://pulse-leads-mcp.onrender.com/mcp
 
 ---
 
-## 💳 Payment & Monetization Protocol
+## 💳 Transparent Pricing & Monetization
 
-- **Free Evaluation**: 3 trial queries with key `demo_free_key`.
-- **Pro Tier**: $29/mo (1,000 queries) via Base USDC / Stripe.
-- **Pay-As-You-Go**: $0.10 / resolved contact via Base EVM 8453.
-- **Merchant Vault Settlement**: `0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed`.
+- **Free Evaluation**: 20 free queries with key `demo_free_key` or instant trial key via `/checkout?plan=trial`.
+- **Starter Tier**: **$9** (500 queries) &bull; Designed for indie hackers and solo developers.
+- **Pro Tier**: **$19** (1,000 queries) &bull; The standard for automated sales workflows and agents.
+- **Growth Tier**: **$29** (3,000 queries) &bull; High volume intelligence at lowest per-contact cost (<$0.01/lead).
+- **Settlement Merchant Vault**: `0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed` (Base Network EVM 8453).
 
 ---
 

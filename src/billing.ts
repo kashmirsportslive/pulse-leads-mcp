@@ -3,7 +3,7 @@ import path from "path";
 
 export interface CustomerKey {
   key: string;
-  plan: "free_trial" | "pro_subscription" | "x402_micropay";
+  plan: "free_trial" | "starter" | "pro" | "growth" | "pro_subscription" | "x402_micropay";
   creditsRemaining: number;
   expiresAt?: string;
   createdAt: string;
@@ -21,7 +21,7 @@ function ensureDbExists() {
       "demo_free_key": {
         key: "demo_free_key",
         plan: "free_trial",
-        creditsRemaining: 3,
+        creditsRemaining: 20,
         createdAt: new Date().toISOString()
       },
       "premium_partner_key": {

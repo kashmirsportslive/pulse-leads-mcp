@@ -6,15 +6,28 @@ export interface TxVerificationResult {
   sender?: string;
   recipient?: string;
   blockNumber?: number;
+  paidAmountUsdc?: number;
+  grantedCredits?: number;
+  matchedPlan?: "starter" | "pro" | "growth";
 }
 
 // Queries Base Mainnet RPC directly to check if the transaction is real, confirmed, and paid to our wallet
 // ERC-20 Transfer Event Signature: Transfer(address,address,uint256)
 // Topic0: 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
 const TRANSFER_EVENT_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const REQUIRED_USDC_RAW = BigInt(29 * 1000000); // 29 USDC (USDC uses 6 decimals: 29,000,000 units)
 
-export async function verifyBaseTransaction(txHash: string, merchantWallet: string): Promise<TxVerificationResult> {
+// Tier Thresholds in USDC raw units (6 decimals)
+const PLAN_THRESHOLDS = {
+  starter: { minRaw: BigInt(9 * 1000000), credits: 500, price: 9, name: "Starter" },
+  pro: { minRaw: BigInt(19 * 1000000), credits: 1000, price: 19, name: "Pro" },
+  growth: { minRaw: BigInt(29 * 1000000), credits: 3000, price: 29, name: "Growth" }
+};
+
+export async function verifyBaseTransaction(
+  txHash: string,
+  merchantWallet: string,
+  selectedPlan: string = "pro"
+): Promise<TxVerificationResult> {
   const cleanTx = txHash.trim();
   if (!/^0x([A-Fa-f0-9]{64})$/.test(cleanTx)) {
     return { verified: false, reason: "Invalid transaction hash format. Must be 66 hex characters starting with 0x." };
@@ -83,20 +96,43 @@ export async function verifyBaseTransaction(txHash: string, merchantWallet: stri
               });
             }
 
-            // ENFORCE EXACT OR GREATER AMOUNT (Must be >= 29 USDC)
-            if (paidAmountUsdc < REQUIRED_USDC_RAW) {
-              const actualPaidFormatted = (Number(paidAmountUsdc) / 1000000).toFixed(2);
+            const actualPaidNumber = Number(paidAmountUsdc) / 1000000;
+            const actualPaidFormatted = actualPaidNumber.toFixed(2);
+
+            // Determine required minimum based on selected plan
+            const planKey = (selectedPlan === "starter" || selectedPlan === "growth") ? selectedPlan : "pro";
+            const expectedTier = PLAN_THRESHOLDS[planKey];
+
+            if (paidAmountUsdc < expectedTier.minRaw) {
               return resolve({
                 verified: false,
-                reason: `Insufficient payment amount. Required: 29.00 USDC, but this transaction only sent ${actualPaidFormatted} USDC.`
+                reason: `Insufficient payment amount. Selected plan (${expectedTier.name}) requires ${expectedTier.price}.00 USDC, but this transaction only sent ${actualPaidFormatted} USDC.`
               });
+            }
+
+            // Award matching or upgraded tier based on actual paid amount:
+            let grantedCredits = 500;
+            let matchedPlan: "starter" | "pro" | "growth" = "starter";
+
+            if (paidAmountUsdc >= PLAN_THRESHOLDS.growth.minRaw) {
+              grantedCredits = PLAN_THRESHOLDS.growth.credits; // 3,000 credits
+              matchedPlan = "growth";
+            } else if (paidAmountUsdc >= PLAN_THRESHOLDS.pro.minRaw) {
+              grantedCredits = PLAN_THRESHOLDS.pro.credits; // 1,000 credits
+              matchedPlan = "pro";
+            } else if (paidAmountUsdc >= PLAN_THRESHOLDS.starter.minRaw) {
+              grantedCredits = PLAN_THRESHOLDS.starter.credits; // 500 credits
+              matchedPlan = "starter";
             }
 
             resolve({
               verified: true,
               sender: receipt.from,
               recipient: merchantWallet,
-              blockNumber: parseInt(receipt.blockNumber, 16)
+              blockNumber: parseInt(receipt.blockNumber, 16),
+              paidAmountUsdc: actualPaidNumber,
+              grantedCredits,
+              matchedPlan
             });
           } catch (err: any) {
             resolve({ verified: false, reason: "RPC error parsing transaction: " + err.message });
