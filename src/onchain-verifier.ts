@@ -19,7 +19,7 @@ const TRANSFER_EVENT_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a116
 // Tier Thresholds in USDC raw units (6 decimals)
 const PLAN_THRESHOLDS = {
   starter: { minRaw: BigInt(9 * 1000000), credits: 500, price: 9, name: "Starter" },
-  pro: { minRaw: BigInt(19 * 1000000), credits: 1000, price: 19, name: "Pro" },
+  pro: { minRaw: BigInt(19 * 1000000), credits: 1500, price: 19, name: "Pro" },
   growth: { minRaw: BigInt(29 * 1000000), credits: 3000, price: 29, name: "Growth" }
 };
 

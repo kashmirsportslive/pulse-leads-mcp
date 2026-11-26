@@ -239,9 +239,9 @@ app.get("/", (_req: Request, res: Response) => {
                 <div>
                   <h3 style="margin: 0; color: #67e8f9; font-size: 1.1rem;">Pro</h3>
                   <div style="font-size: 1.6rem; font-weight: bold; color: #f8fafc; margin: 8px 0;">$19</div>
-                  <p style="color: #4ade80; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">1,000 Query Credits</p>
+                  <p style="color: #4ade80; font-weight: bold; font-size: 0.95rem; margin: 0 0 12px 0;">1,500 Query Credits</p>
                   <ul class="features" style="font-size: 0.85rem; padding-left: 0; list-style: none;">
-                    <li>1,000 verified decision makers</li>
+                    <li>1,500 verified decision makers</li>
                     <li>All 5 enterprise tech verticals</li>
                     <li>Standard support & high throughput</li>
                   </ul>
@@ -350,7 +350,7 @@ app.get("/checkout", (req: Request, res: Response) => {
       name: "Pro Plan",
       price: "$19.00",
       usdc: 19,
-      credits: "1,000 Credits",
+      credits: "1,500 Credits",
       desc: "The standard for growing sales teams and AI agent pipelines.",
       badge: "Most Popular",
       color: "#4ade80"
@@ -396,7 +396,7 @@ app.get("/checkout", (req: Request, res: Response) => {
         <div class="box">
           <div class="plan-pills">
             <a class="plan-pill ${currentPlanKey === 'starter' ? 'active' : ''}" href="/checkout?plan=starter">Starter &bull; $9 (500)</a>
-            <a class="plan-pill ${currentPlanKey === 'pro' ? 'active' : ''}" href="/checkout?plan=pro">Pro &bull; $19 (1k)</a>
+            <a class="plan-pill ${currentPlanKey === 'pro' ? 'active' : ''}" href="/checkout?plan=pro">Pro &bull; $19 (1.5k)</a>
             <a class="plan-pill ${currentPlanKey === 'growth' ? 'active' : ''}" href="/checkout?plan=growth">Growth &bull; $29 (3k)</a>
           </div>
 
