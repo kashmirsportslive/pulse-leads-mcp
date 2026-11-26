@@ -15,7 +15,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
-const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0xacec998f35d926adBD66c60B46cE0AdCd13145bA";
+const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed";
 
 // Setup MCP Server Definition
 const mcpServer = new Server(
@@ -224,7 +224,7 @@ app.get("/", (_req: Request, res: Response) => {
             <h3 style="color: #e2e8f0; margin-top: 32px;">Integration Details for AI Developers</h3>
             <div class="code-box">
               <strong>MCP Endpoint:</strong> POST ${SERVER_URL}/mcp<br/>
-              <strong>Settlement Wallet:</strong> 0xacec998f35d926adBD66c60B46cE0AdCd13145bA<br/>
+              <strong>Settlement Wallet:</strong> 0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed<br/>
               <strong>Free Evaluation Key:</strong> demo_free_key
             </div>
 

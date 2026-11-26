@@ -12,7 +12,7 @@ Autonomous High-Intent B2B Prospect Intelligence for AI Agents, Developers, and 
 
 - **Web Landing Page & Billing Portal**: [https://pulse-leads-mcp.onrender.com](https://pulse-leads-mcp.onrender.com)
 - **Live MCP Endpoint**: `https://pulse-leads-mcp.onrender.com/mcp`
-- **Merchant Wallet Vault**: `0xacec998f35d926adBD66c60B46cE0AdCd13145bA` (Base EVM 8453)
+- **Merchant Wallet Vault**: `0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed` (Base EVM 8453)
 
 ---
 
@@ -75,7 +75,7 @@ https://pulse-leads-mcp.onrender.com/mcp
 - **Free Evaluation**: 3 trial queries with key `demo_free_key`.
 - **Pro Tier**: $29/mo (1,000 queries) via Base USDC / Stripe.
 - **Pay-As-You-Go**: $0.10 / resolved contact via Base EVM 8453.
-- **Merchant Vault Settlement**: `0xacec998f35d926adBD66c60B46cE0AdCd13145bA`.
+- **Merchant Vault Settlement**: `0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed`.
 
 ---
 
