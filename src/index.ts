@@ -45,7 +45,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             industry: {
               type: "string",
-              description: "Filter by industry (e.g. 'AI', 'Fintech', 'HealthTech', 'Supply Chain')"
+              description: "Filter by industry (e.g. 'AI', 'Fintech', 'Real Estate', 'PropTech', 'HealthTech', 'Supply Chain')"
             },
             minIntentScore: {
               type: "number",

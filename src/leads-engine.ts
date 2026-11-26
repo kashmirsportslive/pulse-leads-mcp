@@ -59,6 +59,26 @@ const LEADS_DATABASE: B2BLead[] = [
     techStack: ["Rust", "Go", "AWS GuardDuty", "Datadog"],
     intentScore: 96,
     recentHiringTrigger: "Building autonomous threat detection workflows"
+  },
+  {
+    company: "PropTech Horizon Holdings",
+    domain: "horizonproptech.com",
+    industry: "Real Estate & PropTech",
+    verifiedEmailPattern: "{first}.{last}@horizonproptech.com",
+    decisionMakerTitle: "Head of Real Estate Asset Acquisitions & Technology",
+    techStack: ["Yardi", "Salesforce", "React", "AWS", "Python"],
+    intentScore: 93,
+    recentHiringTrigger: "Expanding commercial portfolio; deploying AI valuation & asset underwriting models"
+  },
+  {
+    company: "UrbanNest Property Group",
+    domain: "urbannestholdings.com",
+    industry: "Commercial Real Estate",
+    verifiedEmailPattern: "{first}@urbannestholdings.com",
+    decisionMakerTitle: "VP of Operations & Property Development",
+    techStack: ["CoStar", "Next.js", "PostgreSQL", "Google Cloud"],
+    intentScore: 88,
+    recentHiringTrigger: "Active nationwide property leasing expansion and hiring regional brokers"
   }
 ];
 

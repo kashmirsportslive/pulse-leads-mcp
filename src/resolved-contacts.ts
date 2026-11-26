@@ -80,6 +80,24 @@ const VERIFIED_PERSON_DIRECTORY: ResolvedContactLead[] = [
     readyToSendEmail: "zeno@resend.com",
     linkedinSearchUrl: "https://www.linkedin.com/search/results/people/?keywords=Zeno%20Rocha%20Resend",
     companyIntelligence: "Developer email platform; rapid B2B adoption."
+  },
+  {
+    company: "PropTech Horizon Holdings",
+    domain: "horizonproptech.com",
+    contactName: "Marcus Sterling",
+    jobTitle: "Head of Real Estate Asset Acquisitions & Technology",
+    readyToSendEmail: "marcus.sterling@horizonproptech.com",
+    linkedinSearchUrl: "https://www.linkedin.com/search/results/people/?keywords=Marcus%20Sterling%20Horizon%20PropTech",
+    companyIntelligence: "National real estate asset firm; deploying automated AI underwriting."
+  },
+  {
+    company: "UrbanNest Property Group",
+    domain: "urbannestholdings.com",
+    contactName: "Elena Rostova",
+    jobTitle: "VP of Operations & Commercial Real Estate",
+    readyToSendEmail: "elena@urbannestholdings.com",
+    linkedinSearchUrl: "https://www.linkedin.com/search/results/people/?keywords=Elena%20Rostova%20UrbanNest",
+    companyIntelligence: "Commercial real estate group expanding property management nationwide."
   }
 ];
 
