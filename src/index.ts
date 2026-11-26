@@ -209,9 +209,10 @@ app.get("/", (_req: Request, res: Response) => {
               <p style="color: #94a3b8; margin: 0 0 12px 0;">Or pay-per-query at $0.10 USDC per resolved contact via Web3 micropayments.</p>
               <ul class="features">
                 <li>1,000 Verified B2B queries per month</li>
-                <li>Direct C-Suite & Engineering Decision-Maker emails</li>
-                <li>Real-time company hiring triggers and tech stack data</li>
-                <li>Automated payment reconciliation & instant key activation</li>
+                <li><strong>Covered Industries:</strong> Real Estate & PropTech, AI Infrastructure, Fintech, Cybersecurity, Healthcare & Logistics</li>
+                <li>Direct C-Suite & VP Decision-Maker verified emails</li>
+                <li>Real-time company hiring triggers and tech stack intelligence</li>
+                <li>Instant MCP API Key activation for Claude Desktop & Cursor</li>
               </ul>
               <div class="btn-group">
                 <a class="btn" href="/checkout?plan=pro">Subscribe via Stripe / Card</a>
