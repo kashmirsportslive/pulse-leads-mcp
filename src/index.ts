@@ -5,6 +5,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
 import { getCustomer, deductCredit, registerKey } from "./billing";
+import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
 
@@ -339,10 +340,10 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
   const { txHash, email } = req.body;
   const cleanTx = String(txHash || "").trim();
 
-  // Validate transaction hash format (66 hex characters starting with 0x)
-  const isValidTxFormat = /^0x([A-Fa-f0-9]{64})$/.test(cleanTx);
+  // Real-time on-chain verification directly on Base blockchain
+  const result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET);
 
-  if (!isValidTxFormat) {
+  if (!result.verified) {
     return res.status(400).send(`
       <!DOCTYPE html>
       <html>
@@ -356,19 +357,19 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
         </head>
         <body>
           <div class="box">
-            <h2 style="color: #ef4444; margin-top: 0;">❌ Payment Verification Rejected</h2>
-            <p>Invalid or unconfirmed transaction hash provided:</p>
-            <p style="color: #fca5a5; font-family: monospace;">${cleanTx || "EMPTY_TX"}</p>
-            <p style="color: #94a3b8; font-size: 0.9rem;">No payment was detected. Pro API Keys are strictly provisioned only after confirmed 29 USDC transfer to the merchant vault.</p>
+            <h2 style="color: #ef4444; margin-top: 0;">❌ Blockchain Verification Rejected</h2>
+            <p><strong>Reason:</strong> ${result.reason}</p>
+            <p style="color: #fca5a5; font-family: monospace; word-break: break-all;">TxHash: ${cleanTx || "EMPTY"}</p>
+            <p style="color: #94a3b8; font-size: 0.9rem;">The Base blockchain confirmed that no payment reached merchant vault <code>${MERCHANT_WALLET}</code>.</p>
             <br/>
-            <a class="btn" href="/checkout">Try Again</a>
+            <a class="btn" href="/checkout">Back to Checkout</a>
           </div>
         </body>
       </html>
     `);
   }
 
-  // Generate verified key
+  // Generate verified key ONLY after confirmed on-chain settlement
   const newPaidKey = `pulse_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
   registerKey({
     key: newPaidKey,
@@ -391,13 +392,13 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
       </head>
       <body>
         <div class="box">
-          <h2 style="color: #4ade80; margin-top: 0;">✅ Payment Verified & Confirmed!</h2>
-          <p>Transaction: <span style="font-family: monospace; color: #38bdf8;">${cleanTx.substring(0, 18)}...</span></p>
-          <p>Confirmation email sent to <strong>${email || "customer"}</strong>.</p>
+          <h2 style="color: #4ade80; margin-top: 0;">✅ Blockchain Payment Verified & Confirmed!</h2>
+          <p>Base Block: <strong>#${result.blockNumber}</strong></p>
+          <p>Payer Address: <span style="font-family: monospace; color: #38bdf8;">${result.sender}</span></p>
+          <p>Confirmation receipt generated for: <strong>${email || "customer"}</strong>.</p>
           <p>Your Pro API Key has been provisioned:</p>
           <div class="key">${newPaidKey}</div>
           <p>Credits: <strong>1,000 B2B queries</strong> loaded.</p>
-          <p style="color: #94a3b8; font-size: 0.85rem;">Valid for Claude Desktop, Cursor, and any MCP client.</p>
           <br/>
           <a class="btn" href="/">Return to Dashboard</a>
         </div>
