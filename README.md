@@ -79,6 +79,16 @@ https://pulse-leads-mcp.onrender.com/mcp
 
 ---
 
+## 💬 Support & Developer Help Desk
+
+If you experience any issues with payments, key provisioning, or client configuration:
+
+- **Primary Support Email**: [adammehfuz@gmail.com](mailto:adammehfuz@gmail.com) (Guaranteed response within 2 hours)
+- **GitHub Issues**: [Open an issue on GitHub](https://github.com/kashmirsportslive/pulse-leads-mcp/issues)
+- **Settlement Verification**: All on-chain receipts can be publicly verified on [BaseScan Explorer](https://basescan.org/address/0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed).
+
+---
+
 ## 📄 License
 
 MIT License. Open source and ready to deploy on Render, Railway, or Fly.io.

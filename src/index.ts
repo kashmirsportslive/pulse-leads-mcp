@@ -228,8 +228,22 @@ app.get("/", (_req: Request, res: Response) => {
               <strong>Free Evaluation Key:</strong> demo_free_key
             </div>
 
+            <div style="background: #1e293b; border-radius: 8px; padding: 20px; margin-top: 30px; border: 1px solid #334155; text-align: left;">
+              <h4 style="margin: 0 0 10px 0; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                <span>💬</span> Customer Support & Help Desk
+              </h4>
+              <p style="margin: 0 0 8px 0; font-size: 0.92rem; color: #cbd5e1;">
+                Experiencing any issues with payments, API key provisioning, or MCP client integration? Our support team responds within 2 hours:
+              </p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: #94a3b8; line-height: 1.6;">
+                <li><strong>Direct Email:</strong> <a href="mailto:adammehfuz@gmail.com" style="color: #38bdf8; text-decoration: underline;">adammehfuz@gmail.com</a></li>
+                <li><strong>Developer Issues:</strong> <a href="https://github.com/kashmirsportslive/pulse-leads-mcp/issues" target="_blank" style="color: #38bdf8; text-decoration: underline;">GitHub Issues Tracker</a></li>
+                <li><strong>Blockchain Verification:</strong> <a href="https://basescan.org/address/0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed" target="_blank" style="color: #38bdf8; text-decoration: underline;">View BaseScan Merchant Vault</a></li>
+              </ul>
+            </div>
+
             <div class="footer">
-              PulseLeads MCP &bull; Open Standards compliant with Model Context Protocol &bull; Transparent pricing, zero hidden charges.
+              PulseLeads MCP &bull; Open Standards compliant with Model Context Protocol &bull; Transparent pricing, zero hidden charges. Support: adammehfuz@gmail.com
             </div>
           </div>
         </div>
@@ -325,8 +339,12 @@ app.get("/checkout", (req: Request, res: Response) => {
             </form>
           </div>
 
-          <div style="margin-top: 24px; text-align: center;">
-            <p style="color: #64748b; font-size: 0.85rem;">Stripe Credit Card checkout is connected via webhooks. To request an enterprise direct invoice, contact billing@pulseleads.ai.</p>
+          <div style="margin-top: 24px; text-align: center; border-top: 1px solid #1e293b; padding-top: 20px;">
+            <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 6px;">Need help, custom invoices, or experiencing payment issues?</p>
+            <p style="color: #38bdf8; font-size: 0.9rem; margin: 0;">
+              📧 Contact: <a href="mailto:adammehfuz@gmail.com" style="color: #38bdf8; font-weight: bold; text-decoration: underline;">adammehfuz@gmail.com</a> &bull; 
+              <a href="https://github.com/kashmirsportslive/pulse-leads-mcp/issues" target="_blank" style="color: #94a3b8; text-decoration: underline;">GitHub Support</a>
+            </p>
           </div>
         </div>
       </body>
@@ -361,6 +379,11 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
             <p><strong>Reason:</strong> ${result.reason}</p>
             <p style="color: #fca5a5; font-family: monospace; word-break: break-all;">TxHash: ${cleanTx || "EMPTY"}</p>
             <p style="color: #94a3b8; font-size: 0.9rem;">The Base blockchain confirmed that no payment reached merchant vault <code>${MERCHANT_WALLET}</code>.</p>
+            <div style="background: #2a1515; border: 1px solid #7f1d1d; border-radius: 6px; padding: 12px; margin: 18px 0; font-size: 0.88rem; color: #fca5a5; text-align: left;">
+              <strong>Need Help?</strong> If your transaction was recently broadcast, it may take a few seconds to confirm. If you paid and need manual key provisioning, email us directly with your TxHash:
+              <br/><br/>
+              📧 <strong>Support:</strong> <a href="mailto:adammehfuz@gmail.com?subject=PulseLeads%20Payment%20Assistance" style="color: #67e8f9; text-decoration: underline;">adammehfuz@gmail.com</a>
+            </div>
             <br/>
             <a class="btn" href="/checkout">Back to Checkout</a>
           </div>
