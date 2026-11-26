@@ -16,6 +16,12 @@ export interface TxVerificationResult {
 // Topic0: 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
 const TRANSFER_EVENT_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
+// Strict whitelist of authentic Base USDC token contract addresses
+const OFFICIAL_USDC_CONTRACTS = [
+  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // Official Native Base USDC (Circle)
+  "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"  // Official Bridged USDbC (Base Bridge)
+];
+
 // Tier Thresholds in USDC raw units (6 decimals)
 const PLAN_THRESHOLDS = {
   starter: { minRaw: BigInt(9 * 1000000), credits: 500, price: 9, name: "Starter" },
@@ -70,10 +76,17 @@ export async function verifyBaseTransaction(
             let paidAmountUsdc = BigInt(0);
             let validTransferFound = false;
 
-            // Strict log inspection: Check Transfer event, recipient topic, and exact amount
+            // Strict log inspection:
+            // 1. MUST be emitted by the official Base USDC token contract (rejects fake token mints)
+            // 2. MUST match ERC-20 Transfer event topic
+            // 3. MUST have recipient topic matching merchant vault
             if (receipt.logs && Array.isArray(receipt.logs)) {
               for (const log of receipt.logs) {
+                const tokenContract = String(log.address || "").toLowerCase();
+                const isOfficialUsdc = OFFICIAL_USDC_CONTRACTS.includes(tokenContract);
+
                 if (
+                  isOfficialUsdc &&
                   log.topics &&
                   log.topics.length >= 3 &&
                   log.topics[0].toLowerCase() === TRANSFER_EVENT_TOPIC &&
@@ -92,7 +105,7 @@ export async function verifyBaseTransaction(
             if (!validTransferFound) {
               return resolve({
                 verified: false,
-                reason: `No transfer to merchant vault (${merchantWallet}) found in transaction logs.`
+                reason: `No official Base USDC transfer to merchant vault (${merchantWallet}) found in transaction logs. (Only genuine Circle Native USDC 0x833589... is accepted).`
               });
             }
 
@@ -118,7 +131,7 @@ export async function verifyBaseTransaction(
               grantedCredits = PLAN_THRESHOLDS.growth.credits; // 3,000 credits
               matchedPlan = "growth";
             } else if (paidAmountUsdc >= PLAN_THRESHOLDS.pro.minRaw) {
-              grantedCredits = PLAN_THRESHOLDS.pro.credits; // 1,000 credits
+              grantedCredits = PLAN_THRESHOLDS.pro.credits; // 1,500 credits
               matchedPlan = "pro";
             } else if (paidAmountUsdc >= PLAN_THRESHOLDS.starter.minRaw) {
               grantedCredits = PLAN_THRESHOLDS.starter.credits; // 500 credits

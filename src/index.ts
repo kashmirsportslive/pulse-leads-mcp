@@ -17,6 +17,34 @@ const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
 const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0xE50451548c650cfcfb9D0E31500d51Ff3e6C88Ed";
 
+// Security Utility: Escape HTML to prevent XSS injection attacks
+function escapeHtml(str: any): string {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Security Utility: In-memory sliding-window IP rate limiter
+const ipRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string, action: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now();
+  const key = `${action}:${ip}`;
+  const record = ipRateLimits.get(key);
+  if (!record || now > record.resetAt) {
+    ipRateLimits.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (record.count >= maxRequests) {
+    return false;
+  }
+  record.count += 1;
+  return true;
+}
+
 // Setup MCP Server Definition
 const mcpServer = new Server(
   {
@@ -142,8 +170,24 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    // Deduct credit atomically
-    deductCredit(key);
+    // Deduct credit atomically and verify success
+    const deducted = deductCredit(key);
+    if (!deducted) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "PaymentRequired",
+              httpCode: 402,
+              message: "Your query credits are exhausted or could not be deducted. Please top up your key.",
+              topUpUrl: `${SERVER_URL}/checkout`
+            }, null, 2)
+          }
+        ]
+      };
+    }
 
     const industry = args?.industry ? String(args.industry) : undefined;
     const minIntent = typeof args?.minIntentScore === "number" ? args.minIntentScore : 80;
@@ -472,9 +516,29 @@ app.get("/checkout", (req: Request, res: Response) => {
 // Strict Activation handler - ONLY generates key if valid payment proof exists
 app.use(express.urlencoded({ extended: true }));
 app.post("/verify-payment", async (req: Request, res: Response) => {
-  const { txHash, email, plan } = req.body;
+  const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
+  const clientIp = rawIp.split(",")[0].trim();
+
+  // Rate Limiting: Max 12 attempts per minute per IP
+  if (!checkRateLimit(clientIp, "verify_payment", 12, 60000)) {
+    return res.status(429).send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Too Many Requests | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center;}</style></head>
+        <body>
+          <h2 style="color:#eab308;">⚠️ Rate Limit Exceeded</h2>
+          <p>Too many verification attempts from this network. Please wait 60 seconds before retrying.</p>
+          <br/><a href="/checkout" style="color:#38bdf8;">Back to Checkout</a>
+        </body>
+      </html>
+    `);
+  }
+
+  const { txHash, email, plan } = req.body || {};
   const cleanTx = String(txHash || "").trim().toLowerCase();
   const selectedPlan = String(plan || "pro").toLowerCase();
+  const safeEmail = escapeHtml(email || "customer");
+  const safeTx = escapeHtml(cleanTx || "EMPTY");
 
   // 1. REPLAY PREVENTION: Check if transaction hash has already been redeemed
   const alreadyClaimed = getClaimedTx(cleanTx);
@@ -498,7 +562,7 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
           <div class="box">
             <span class="badge-warn">🔒 Single-Use Verification: Transaction Already Redeemed</span>
             <h2 style="color: #38bdf8; margin-top: 0;">ℹ️ Your Active Provisioned API Key</h2>
-            <p>This transaction (<code>${cleanTx.slice(0, 10)}...${cleanTx.slice(-8)}</code>) was already verified on <strong>${new Date(alreadyClaimed.claimedAt).toLocaleDateString()}</strong>.</p>
+            <p>This transaction (<code>${safeTx.slice(0, 10)}...${safeTx.slice(-8)}</code>) was already verified on <strong>${new Date(alreadyClaimed.claimedAt).toLocaleDateString()}</strong>.</p>
             <p>Here is your active key:</p>
             <div class="key">${alreadyClaimed.key}</div>
             <p>Credits: <strong style="color: #4ade80;">${remaining.toLocaleString()}</strong> remaining on this key.</p>
@@ -532,8 +596,8 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
         <body>
           <div class="box">
             <h2 style="color: #ef4444; margin-top: 0;">❌ Blockchain Verification Rejected</h2>
-            <p><strong>Reason:</strong> ${result.reason}</p>
-            <p style="color: #fca5a5; font-family: monospace; word-break: break-all;">TxHash: ${cleanTx || "EMPTY"}</p>
+            <p><strong>Reason:</strong> ${escapeHtml(result.reason)}</p>
+            <p style="color: #fca5a5; font-family: monospace; word-break: break-all;">TxHash: ${safeTx}</p>
             <p style="color: #94a3b8; font-size: 0.9rem;">The Base blockchain confirmed that no payment reached merchant vault <code>${MERCHANT_WALLET}</code>.</p>
             <div style="background: #2a1515; border: 1px solid #7f1d1d; border-radius: 6px; padding: 12px; margin: 18px 0; font-size: 0.88rem; color: #fca5a5; text-align: left;">
               <strong>Need Help?</strong> If your transaction was recently broadcast, it may take a few seconds to confirm. If you paid and need manual key provisioning, email us directly with your TxHash:
@@ -550,7 +614,7 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
 
   // Generate verified key ONLY after confirmed on-chain settlement
   const grantedPlan = result.matchedPlan || "pro";
-  const grantedCredits = result.grantedCredits || 1000;
+  const grantedCredits = result.grantedCredits || 1500;
   const newPaidKey = `pulse_${grantedPlan}_${Date.now().toString(36)}`;
 
   registerKey({
@@ -568,7 +632,7 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
     amountUsdc: result.paidAmountUsdc || 0,
     creditsGranted: grantedCredits,
     claimedAt: new Date().toISOString(),
-    email: email || undefined
+    email: safeEmail
   });
 
   res.send(`
@@ -588,8 +652,8 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
           <h2 style="color: #4ade80; margin-top: 0;">✅ Blockchain Payment Verified & Confirmed!</h2>
           <p>Plan Activated: <strong style="color: #38bdf8; text-transform: uppercase;">${grantedPlan} Plan</strong></p>
           <p>Base Block: <strong>#${result.blockNumber}</strong> &bull; Amount Verified: <strong>$${result.paidAmountUsdc?.toFixed(2)} USDC</strong></p>
-          <p>Payer Address: <span style="font-family: monospace; color: #38bdf8;">${result.sender}</span></p>
-          <p>Confirmation receipt generated for: <strong>${email || "customer"}</strong>.</p>
+          <p>Payer Address: <span style="font-family: monospace; color: #38bdf8;">${escapeHtml(result.sender)}</span></p>
+          <p>Confirmation receipt generated for: <strong>${safeEmail}</strong>.</p>
           <p>Your Pro API Key has been provisioned:</p>
           <div class="key">${newPaidKey}</div>
           <p>Credits: <strong style="color: #4ade80;">${grantedCredits.toLocaleString()} B2B queries</strong> loaded.</p>
