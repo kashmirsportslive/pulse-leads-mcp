@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
-import { getCustomer, deductCredit, registerKey } from "./billing";
+import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey } from "./billing";
 import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
@@ -301,34 +301,61 @@ app.get("/checkout", (req: Request, res: Response) => {
   const selectedPlan = String(req.query.plan || "pro").toLowerCase();
   
   if (selectedPlan === "trial" || selectedPlan === "free_trial") {
-    const trialKey = `trial_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString(36)}`;
-    registerKey({
-      key: trialKey,
-      plan: "free_trial",
-      creditsRemaining: 20,
-      createdAt: new Date().toISOString()
-    });
+    const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
+    const clientIp = rawIp.split(",")[0].trim();
+    const claim = claimOrGetTrialKey(clientIp);
+
+    if (claim.exhausted) {
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Free Trial Exhausted | PulseLeads</title>
+            <style>
+              body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
+              .box { background: #1f1212; border: 1px solid #ef4444; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
+              .btn { background: #0284c7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; margin-top: 16px; }
+            </style>
+          </head>
+          <body>
+            <div class="box">
+              <h2 style="color: #ef4444; margin-top: 0;">⚠️ Free Trial Credits Exhausted</h2>
+              <p>You have already utilized all <strong>20 free evaluation queries</strong> assigned to your network IP (${clientIp}).</p>
+              <p style="color: #94a3b8; font-size: 0.9rem;">To continue querying high-intent B2B prospect intelligence, upgrade to our high-speed paid tiers starting at only <strong>$9 for 500 queries</strong>.</p>
+              <a class="btn" style="background: #22c55e; color: #0b0f19;" href="/checkout?plan=starter">Upgrade to Starter ($9 for 500 Credits)</a>
+              <br/><br/>
+              <a href="/" style="color: #38bdf8; font-size: 0.9rem;">Return to Home</a>
+            </div>
+          </body>
+        </html>
+      `);
+    }
 
     return res.send(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Free Trial Activated | PulseLeads</title>
+          <title>${claim.isNew ? "Free Trial Activated" : "Your Active Free Trial"} | PulseLeads</title>
           <style>
             body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
             .box { background: #131b2e; border: 1px solid #38bdf8; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
-            .key { background: #020617; color: #38bdf8; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; margin: 20px 0; border: 1px dashed #0284c7; }
+            .key { background: #020617; color: #38bdf8; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; margin: 20px 0; border: 1px dashed #0284c7; word-break: break-all; }
             .btn { background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+            .badge-ip { display: inline-block; background: #0369a1; color: #e0f2fe; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-bottom: 12px; }
           </style>
         </head>
         <body>
           <div class="box">
-            <h2 style="color: #38bdf8; margin-top: 0;">🎉 Free Trial Key Activated!</h2>
-            <p>You have received <strong>20 free query credits</strong> to evaluate the API.</p>
-            <div class="key">${trialKey}</div>
-            <p style="color: #94a3b8; font-size: 0.9rem;">Copy this key and paste it into your AI agent or MCP configuration file.</p>
+            <span class="badge-ip">🔒 Limit: 1 Trial Key Per Network IP (${clientIp})</span>
+            <h2 style="color: #38bdf8; margin-top: 0;">${claim.isNew ? "🎉 Free Trial Key Activated!" : "ℹ️ Your Active Free Trial Key"}</h2>
+            <p>${claim.isNew ? "You have received <strong>20 free query credits</strong> to evaluate the API." : `You have already claimed a free trial. You have <strong>${claim.creditsRemaining} / 20 credits</strong> remaining.`}</p>
+            <div class="key">${claim.key}</div>
+            <p style="color: #94a3b8; font-size: 0.9rem;">Paste this key into your AI agent or MCP configuration file.</p>
             <br/>
-            <a class="btn" href="/">Return to Home</a>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <a class="btn" href="/">Return to Home</a>
+              <a class="btn" style="background: #22c55e; color: #0b0f19;" href="/checkout?plan=starter">Upgrade to Starter ($9)</a>
+            </div>
           </div>
         </body>
       </html>

@@ -10,6 +10,7 @@ export interface CustomerKey {
 }
 
 const DB_FILE = path.join(__dirname, "../data/keys.json");
+const TRIAL_IPS_FILE = path.join(__dirname, "../data/trial_ips.json");
 
 function ensureDbExists() {
   const dir = path.dirname(DB_FILE);
@@ -33,6 +34,62 @@ function ensureDbExists() {
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(seed, null, 2), "utf-8");
   }
+  if (!fs.existsSync(TRIAL_IPS_FILE)) {
+    fs.writeFileSync(TRIAL_IPS_FILE, JSON.stringify({}, null, 2), "utf-8");
+  }
+}
+
+export interface TrialClaimResult {
+  key: string;
+  isNew: boolean;
+  creditsRemaining: number;
+  exhausted: boolean;
+}
+
+export function claimOrGetTrialKey(clientIp: string): TrialClaimResult {
+  ensureDbExists();
+
+  let trialIps: Record<string, { key: string; claimedAt: string }> = {};
+  try {
+    trialIps = JSON.parse(fs.readFileSync(TRIAL_IPS_FILE, "utf-8"));
+  } catch {
+    trialIps = {};
+  }
+
+  // If this IP already claimed a key, return their existing key
+  if (trialIps[clientIp]) {
+    const existingKey = trialIps[clientIp].key;
+    const customer = getCustomer(existingKey);
+    const credits = customer ? customer.creditsRemaining : 0;
+    return {
+      key: existingKey,
+      isNew: false,
+      creditsRemaining: credits,
+      exhausted: credits <= 0
+    };
+  }
+
+  // First time claiming from this IP: provision single trial key
+  const newTrialKey = `trial_${Math.random().toString(36).substring(2, 7)}_${Date.now().toString(36)}`;
+  registerKey({
+    key: newTrialKey,
+    plan: "free_trial",
+    creditsRemaining: 20,
+    createdAt: new Date().toISOString()
+  });
+
+  trialIps[clientIp] = {
+    key: newTrialKey,
+    claimedAt: new Date().toISOString()
+  };
+  fs.writeFileSync(TRIAL_IPS_FILE, JSON.stringify(trialIps, null, 2), "utf-8");
+
+  return {
+    key: newTrialKey,
+    isNew: true,
+    creditsRemaining: 20,
+    exhausted: false
+  };
 }
 
 export function getCustomer(key: string): CustomerKey | null {
