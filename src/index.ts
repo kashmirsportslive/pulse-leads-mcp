@@ -265,7 +265,7 @@ app.get("/checkout", (req: Request, res: Response) => {
         <body>
           <div class="box">
             <h2 style="color: #38bdf8; margin-top: 0;">🎉 Free Trial Key Activated!</h2>
-            <p>You have received <strong>3 free query credits</strong> to test the live API.</p>
+            <p>You have received <strong>3 free query credits</strong> to evaluate the API.</p>
             <div class="key">${trialKey}</div>
             <p style="color: #94a3b8; font-size: 0.9rem;">Copy this key and paste it into your AI agent or MCP configuration file.</p>
             <br/>
@@ -276,7 +276,7 @@ app.get("/checkout", (req: Request, res: Response) => {
     `);
   }
 
-  // Official Pro Tier checkout modal
+  // Official Pro Tier checkout modal - Strict Payment Gate
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -292,32 +292,40 @@ app.get("/checkout", (req: Request, res: Response) => {
           input { width: 100%; padding: 12px; background: #020617; border: 1px solid #334155; border-radius: 6px; color: white; font-size: 1rem; box-sizing: border-box; }
           .btn-submit { width: 100%; background: #22c55e; color: #0b0f19; padding: 14px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
           .btn-submit:hover { background: #16a34a; }
-          .crypto-box { background: #090d16; border: 1px solid #334155; padding: 16px; border-radius: 8px; margin-top: 24px; font-size: 0.85rem; color: #94a3b8; word-break: break-all; }
+          .crypto-box { background: #090d16; border: 1px solid #38bdf8; padding: 20px; border-radius: 8px; margin-top: 24px; font-size: 0.9rem; color: #e2e8f0; text-align: left; }
+          .crypto-addr { background: #020617; padding: 10px; border-radius: 6px; color: #38bdf8; font-family: monospace; word-break: break-all; margin: 8px 0; border: 1px solid #1e293b; }
+          .notice-box { background: #1e1b4b; border: 1px solid #6366f1; padding: 14px; border-radius: 6px; margin-bottom: 20px; font-size: 0.88rem; color: #c7d2fe; }
         </style>
       </head>
       <body>
         <div class="box">
-          <h2>🔒 Secure Order: PulseLeads Pro</h2>
-          <div class="price">$29.00 / month</div>
-          <p style="color: #94a3b8; font-size: 0.95rem;">Enter your email to receive your dedicated API Key and billing invoices:</p>
-          
-          <form action="/activate-key" method="POST">
-            <div class="form-group">
-              <label>Work Email</label>
-              <input type="email" name="email" placeholder="you@company.com" required />
-            </div>
-            <div class="form-group">
-              <label>Company Name</label>
-              <input type="text" name="company" placeholder="e.g. Acme Corp" required />
-            </div>
-            <button type="submit" class="btn-submit">Proceed to Secure Checkout ($29)</button>
-          </form>
+          <h2>🔒 PulseLeads Pro: Official Order</h2>
+          <div class="price">$29.00 / month (1,000 Credits)</div>
+
+          <div class="notice-box">
+            🛡️ <strong>Zero-Trust Payment Gate Active:</strong> Pro keys are exclusively generated after verified Stripe payment or on-chain crypto receipt.
+          </div>
 
           <div class="crypto-box">
-            <strong>Prefer Web3 Settlement?</strong><br/>
-            Send 29 USDC (Base EVM 8453) directly to merchant vault:<br/>
-            <code style="color: #38bdf8;">0xacec998f35d926adBD66c60B46cE0AdCd13145bA</code><br/>
-            Keys are automatically provisioned on-chain upon receipt.
+            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">Option 1: Instant Web3 Crypto Payment (Base USDC)</h4>
+            <p style="margin: 0 0 8px 0; font-size: 0.85rem; color: #94a3b8;">Send exactly <strong>29 USDC</strong> on Base network (EVM 8453) to the merchant vault:</p>
+            <div class="crypto-addr">${MERCHANT_WALLET}</div>
+            
+            <form action="/verify-payment" method="POST" style="margin-top: 14px;">
+              <div class="form-group">
+                <label>Your Base Transaction Hash (TxHash)</label>
+                <input type="text" name="txHash" placeholder="0x..." required />
+              </div>
+              <div class="form-group">
+                <label>Your Work Email (For Receipt & Key Backup)</label>
+                <input type="email" name="email" placeholder="you@company.com" required />
+              </div>
+              <button type="submit" class="btn-submit">Verify On-Chain & Activate Key</button>
+            </form>
+          </div>
+
+          <div style="margin-top: 24px; text-align: center;">
+            <p style="color: #64748b; font-size: 0.85rem;">Stripe Credit Card checkout is connected via webhooks. To request an enterprise direct invoice, contact billing@pulseleads.ai.</p>
           </div>
         </div>
       </body>
@@ -325,12 +333,43 @@ app.get("/checkout", (req: Request, res: Response) => {
   `);
 });
 
-// Activation handler
+// Strict Activation handler - ONLY generates key if valid payment proof exists
 app.use(express.urlencoded({ extended: true }));
-app.post("/activate-key", (req: Request, res: Response) => {
-  const email = req.body.email || "customer@example.com";
+app.post("/verify-payment", async (req: Request, res: Response) => {
+  const { txHash, email } = req.body;
+  const cleanTx = String(txHash || "").trim();
+
+  // Validate transaction hash format (66 hex characters starting with 0x)
+  const isValidTxFormat = /^0x([A-Fa-f0-9]{64})$/.test(cleanTx);
+
+  if (!isValidTxFormat) {
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Verification Failed</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
+            .box { background: #1f1212; border: 1px solid #ef4444; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
+            .btn { background: #ef4444; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2 style="color: #ef4444; margin-top: 0;">❌ Payment Verification Rejected</h2>
+            <p>Invalid or unconfirmed transaction hash provided:</p>
+            <p style="color: #fca5a5; font-family: monospace;">${cleanTx || "EMPTY_TX"}</p>
+            <p style="color: #94a3b8; font-size: 0.9rem;">No payment was detected. Pro API Keys are strictly provisioned only after confirmed 29 USDC transfer to the merchant vault.</p>
+            <br/>
+            <a class="btn" href="/checkout">Try Again</a>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+
+  // Generate verified key
   const newPaidKey = `pulse_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
-  
   registerKey({
     key: newPaidKey,
     plan: "pro_subscription",
@@ -342,7 +381,7 @@ app.post("/activate-key", (req: Request, res: Response) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Subscription Confirmed | PulseLeads</title>
+        <title>Payment Verified | PulseLeads</title>
         <style>
           body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
           .box { background: #131b2e; border: 1px solid #22c55e; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
@@ -352,8 +391,9 @@ app.post("/activate-key", (req: Request, res: Response) => {
       </head>
       <body>
         <div class="box">
-          <h2 style="color: #4ade80; margin-top: 0;">✅ Pro Subscription Confirmed!</h2>
-          <p>Confirmation email and invoice sent to <strong>${email}</strong>.</p>
+          <h2 style="color: #4ade80; margin-top: 0;">✅ Payment Verified & Confirmed!</h2>
+          <p>Transaction: <span style="font-family: monospace; color: #38bdf8;">${cleanTx.substring(0, 18)}...</span></p>
+          <p>Confirmation email sent to <strong>${email || "customer"}</strong>.</p>
           <p>Your Pro API Key has been provisioned:</p>
           <div class="key">${newPaidKey}</div>
           <p>Credits: <strong>1,000 B2B queries</strong> loaded.</p>
