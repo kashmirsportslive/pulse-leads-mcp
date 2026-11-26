@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+MY_SECRET_WALLET_DO_NOT_SHARE.json
+tunnel.log
+data/
