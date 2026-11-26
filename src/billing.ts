@@ -11,6 +11,7 @@ export interface CustomerKey {
 
 const DB_FILE = path.join(__dirname, "../data/keys.json");
 const TRIAL_IPS_FILE = path.join(__dirname, "../data/trial_ips.json");
+const CLAIMED_TX_FILE = path.join(__dirname, "../data/claimed_txs.json");
 
 function ensureDbExists() {
   const dir = path.dirname(DB_FILE);
@@ -37,6 +38,42 @@ function ensureDbExists() {
   if (!fs.existsSync(TRIAL_IPS_FILE)) {
     fs.writeFileSync(TRIAL_IPS_FILE, JSON.stringify({}, null, 2), "utf-8");
   }
+  if (!fs.existsSync(CLAIMED_TX_FILE)) {
+    fs.writeFileSync(CLAIMED_TX_FILE, JSON.stringify({}, null, 2), "utf-8");
+  }
+}
+
+export interface ClaimedTxRecord {
+  txHash: string;
+  key: string;
+  plan: string;
+  amountUsdc: number;
+  creditsGranted: number;
+  claimedAt: string;
+  email?: string;
+}
+
+export function getClaimedTx(txHash: string): ClaimedTxRecord | null {
+  ensureDbExists();
+  try {
+    const raw = fs.readFileSync(CLAIMED_TX_FILE, "utf-8");
+    const data: Record<string, ClaimedTxRecord> = JSON.parse(raw);
+    return data[txHash.toLowerCase()] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function recordClaimedTx(record: ClaimedTxRecord): void {
+  ensureDbExists();
+  let data: Record<string, ClaimedTxRecord> = {};
+  try {
+    data = JSON.parse(fs.readFileSync(CLAIMED_TX_FILE, "utf-8"));
+  } catch {
+    data = {};
+  }
+  data[record.txHash.toLowerCase()] = record;
+  fs.writeFileSync(CLAIMED_TX_FILE, JSON.stringify(data, null, 2), "utf-8");
 }
 
 export interface TrialClaimResult {

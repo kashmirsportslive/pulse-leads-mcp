@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
-import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey } from "./billing";
+import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx } from "./billing";
 import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
@@ -473,8 +473,46 @@ app.get("/checkout", (req: Request, res: Response) => {
 app.use(express.urlencoded({ extended: true }));
 app.post("/verify-payment", async (req: Request, res: Response) => {
   const { txHash, email, plan } = req.body;
-  const cleanTx = String(txHash || "").trim();
+  const cleanTx = String(txHash || "").trim().toLowerCase();
   const selectedPlan = String(plan || "pro").toLowerCase();
+
+  // 1. REPLAY PREVENTION: Check if transaction hash has already been redeemed
+  const alreadyClaimed = getClaimedTx(cleanTx);
+  if (alreadyClaimed) {
+    const customer = getCustomer(alreadyClaimed.key);
+    const remaining = customer ? customer.creditsRemaining : 0;
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Transaction Already Redeemed | PulseLeads</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
+            .box { background: #131b2e; border: 1px solid #38bdf8; border-radius: 12px; padding: 36px; max-width: 580px; margin: 0 auto; }
+            .key { background: #020617; color: #38bdf8; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; margin: 20px 0; border: 1px dashed #0284c7; word-break: break-all; }
+            .btn { background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+            .badge-warn { display: inline-block; background: #854d0e; color: #fef08a; font-size: 0.78rem; padding: 4px 10px; border-radius: 4px; margin-bottom: 12px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <span class="badge-warn">🔒 Single-Use Verification: Transaction Already Redeemed</span>
+            <h2 style="color: #38bdf8; margin-top: 0;">ℹ️ Your Active Provisioned API Key</h2>
+            <p>This transaction (<code>${cleanTx.slice(0, 10)}...${cleanTx.slice(-8)}</code>) was already verified on <strong>${new Date(alreadyClaimed.claimedAt).toLocaleDateString()}</strong>.</p>
+            <p>Here is your active key:</p>
+            <div class="key">${alreadyClaimed.key}</div>
+            <p>Credits: <strong style="color: #4ade80;">${remaining.toLocaleString()}</strong> remaining on this key.</p>
+            <p style="color: #94a3b8; font-size: 0.85rem;">Each blockchain transaction hash can only be redeemed once. If you need more queries, please place a new order.</p>
+            <br/>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <a class="btn" href="/">Return to Home</a>
+              <a class="btn" style="background: #22c55e; color: #0b0f19;" href="/checkout">New Order</a>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+  }
 
   // Real-time on-chain verification directly on Base blockchain
   const result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET, selectedPlan);
@@ -520,6 +558,17 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
     plan: grantedPlan as any,
     creditsRemaining: grantedCredits,
     createdAt: new Date().toISOString()
+  });
+
+  // Record this TxHash as redeemed to permanently prevent duplicate key claims
+  recordClaimedTx({
+    txHash: cleanTx,
+    key: newPaidKey,
+    plan: grantedPlan,
+    amountUsdc: result.paidAmountUsdc || 0,
+    creditsGranted: grantedCredits,
+    claimedAt: new Date().toISOString(),
+    email: email || undefined
   });
 
   res.send(`
