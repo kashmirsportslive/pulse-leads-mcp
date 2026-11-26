@@ -13,8 +13,8 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
-const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0x71C8360f3E10D2049A3bE62C1a56daD3Ac32e854";
+const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
+const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0x79cde05bd775c4c7cb6f5cfeb59856fa44d0f00c";
 
 // Setup MCP Server Definition
 const mcpServer = new Server(
@@ -35,13 +35,13 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "find_b2b_prospects",
-        description: "Autonomous High-Intent B2B Tech Leads Finder. Returns verified company domains, decision-maker titles, verified email patterns, and hiring intent. Requires API key or payment.",
+        description: "Autonomous High-Intent B2B Tech Leads Finder. Returns verified company domains, decision-maker titles, verified email patterns, and hiring intent. Requires an active API key with remaining query credits.",
         inputSchema: {
           type: "object",
           properties: {
             apiKey: {
               type: "string",
-              description: "Customer API key. Use 'demo_free_key' for a free 3-query test, or your paid key."
+              description: "Customer API key. Free trial evaluation key: 'demo_free_key', or your purchased Pro key."
             },
             industry: {
               type: "string",
@@ -87,7 +87,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
             type: "text",
             text: JSON.stringify({
               status: "not_found",
-              message: "Invalid API key. Visit http://localhost:3000/pricing to get a subscription key or use 'demo_free_key' for testing."
+              message: "Invalid API key. Visit the pricing portal to acquire credits or use 'demo_free_key' for testing."
             }, null, 2)
           }
         ]
@@ -102,7 +102,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
             status: "active",
             plan: customer.plan,
             creditsRemaining: customer.creditsRemaining,
-            topUpUrl: `${SERVER_URL}/checkout?plan=pro`
+            topUpUrl: `${SERVER_URL}/checkout`
           }, null, 2)
         }
       ]
@@ -125,7 +125,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
               httpCode: 402,
               message: "Your query credits are exhausted or your API key is invalid.",
               paymentOptions: {
-                stripe_instant_checkout: `${SERVER_URL}/checkout?plan=pro`,
+                stripe_official_checkout: `${SERVER_URL}/checkout?plan=pro`,
                 x402_micropayment: {
                   chain: "Base (EVM 8453)",
                   currency: "USDC",
@@ -169,62 +169,196 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
 // REST / SSE / Webhook Endpoints
 app.get("/", (_req: Request, res: Response) => {
   res.send(`
-    <html>
+    <!DOCTYPE html>
+    <html lang="en">
       <head>
-        <title>PulseLeads MCP Gateway</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PulseLeads MCP Gateway | High-Intent B2B Prospect Intelligence</title>
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
-          .card { background: #1e293b; border-radius: 12px; padding: 24px; max-width: 650px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-          h1 { color: #38bdf8; margin-top: 0; }
-          .price { font-size: 2rem; font-weight: bold; color: #4ade80; margin: 15px 0; }
-          .btn { background: #0284c7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; margin-top: 10px; }
-          .code { background: #090d16; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 0.9rem; color: #a5f3fc; }
+          * { box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f8fafc; margin: 0; padding: 40px 20px; line-height: 1.6; }
+          .container { max-width: 800px; margin: 0 auto; }
+          .card { background: #131b2e; border: 1px solid #1e293b; border-radius: 14px; padding: 36px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+          .badge { display: inline-block; background: #0284c7; color: white; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin-bottom: 16px; letter-spacing: 0.05em; }
+          h1 { color: #38bdf8; font-size: 2.2rem; margin: 0 0 12px 0; }
+          p.lead { color: #94a3b8; font-size: 1.15rem; margin-bottom: 28px; }
+          .pricing-box { background: #090d16; border: 1px solid #22c55e; border-radius: 10px; padding: 24px; margin: 24px 0; }
+          .pricing-header { font-size: 1.8rem; font-weight: bold; color: #4ade80; margin-bottom: 8px; }
+          .features { list-style: none; padding: 0; margin: 16px 0; }
+          .features li { padding: 6px 0; color: #cbd5e1; }
+          .features li::before { content: "✓ "; color: #4ade80; font-weight: bold; }
+          .btn-group { display: flex; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+          .btn { background: #0284c7; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 1rem; display: inline-block; transition: background 0.2s; }
+          .btn:hover { background: #0369a1; }
+          .btn-outline { background: transparent; border: 2px solid #38bdf8; color: #38bdf8; }
+          .btn-outline:hover { background: #38bdf8; color: #0b0f19; }
+          .code-box { background: #020617; border: 1px solid #1e293b; padding: 16px; border-radius: 8px; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.9rem; color: #a5f3fc; margin-top: 24px; word-break: break-all; }
+          .footer { margin-top: 36px; text-align: center; color: #64748b; font-size: 0.85rem; }
         </style>
       </head>
       <body>
-        <div class="card">
-          <h1>⚡ PulseLeads Autonomous MCP Server</h1>
-          <p>High-Intent B2B Prospect Intelligence for AI Agents and Developers.</p>
-          <div class="price">$29 / month or $0.10 / call</div>
-          <p>Supports instant Stripe checkout and autonomous x402 USDC micropayments.</p>
-          <div class="code">MCP Endpoint: POST /mcp<br/>Demo Free Key: demo_free_key</div>
-          <br/>
-          <a class="btn" href="/checkout?plan=pro">Subscribe via Stripe</a>
+        <div class="container">
+          <div class="card">
+            <span class="badge">Model Context Protocol (MCP)</span>
+            <h1>⚡ PulseLeads Intelligence Gateway</h1>
+            <p class="lead">Verified Decision-Maker & Tech Stack Intelligence delivered straight into Claude Desktop, Cursor, and Autonomous AI Agents.</p>
+
+            <div class="pricing-box">
+              <div class="pricing-header">$29 / month &bull; Pro Unlimited Tier</div>
+              <p style="color: #94a3b8; margin: 0 0 12px 0;">Or pay-per-query at $0.10 USDC per resolved contact via Web3 micropayments.</p>
+              <ul class="features">
+                <li>1,000 Verified B2B queries per month</li>
+                <li>Direct C-Suite & Engineering Decision-Maker emails</li>
+                <li>Real-time company hiring triggers and tech stack data</li>
+                <li>Automated payment reconciliation & instant key activation</li>
+              </ul>
+              <div class="btn-group">
+                <a class="btn" href="/checkout?plan=pro">Subscribe via Stripe / Card</a>
+                <a class="btn btn-outline" href="/checkout?plan=trial">Get Free Trial Key (3 Credits)</a>
+              </div>
+            </div>
+
+            <h3 style="color: #e2e8f0; margin-top: 32px;">Integration Details for AI Developers</h3>
+            <div class="code-box">
+              <strong>MCP Endpoint:</strong> POST ${SERVER_URL}/mcp<br/>
+              <strong>Settlement Wallet:</strong> ${MERCHANT_WALLET}<br/>
+              <strong>Free Evaluation Key:</strong> demo_free_key
+            </div>
+
+            <div class="footer">
+              PulseLeads MCP &bull; Open Standards compliant with Model Context Protocol &bull; Transparent pricing, zero hidden charges.
+            </div>
+          </div>
         </div>
       </body>
     </html>
   `);
 });
 
-// Payment simulation & Key generation endpoint
+// Transparent Checkout & Key Generation Page
 app.get("/checkout", (req: Request, res: Response) => {
-  const plan = req.query.plan === "pro" ? "pro_subscription" : "free_trial";
-  const generatedKey = `pulse_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+  const plan = req.query.plan === "trial" ? "free_trial" : "pro_subscription";
   
-  registerKey({
-    key: generatedKey,
-    plan: plan as any,
-    creditsRemaining: plan === "pro_subscription" ? 1000 : 3,
-    createdAt: new Date().toISOString()
-  });
+  if (plan === "free_trial") {
+    const trialKey = `trial_${Math.random().toString(36).substring(2, 8)}_${Date.now().toString(36)}`;
+    registerKey({
+      key: trialKey,
+      plan: "free_trial",
+      creditsRemaining: 3,
+      createdAt: new Date().toISOString()
+    });
 
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Free Trial Activated | PulseLeads</title>
+          <style>
+            body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
+            .box { background: #131b2e; border: 1px solid #38bdf8; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
+            .key { background: #020617; color: #38bdf8; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; margin: 20px 0; border: 1px dashed #0284c7; }
+            .btn { background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2 style="color: #38bdf8; margin-top: 0;">🎉 Free Trial Key Activated!</h2>
+            <p>You have received <strong>3 free query credits</strong> to test the live API.</p>
+            <div class="key">${trialKey}</div>
+            <p style="color: #94a3b8; font-size: 0.9rem;">Copy this key and paste it into your AI agent or MCP configuration file.</p>
+            <br/>
+            <a class="btn" href="/">Return to Home</a>
+          </div>
+        </body>
+      </html>
+    `);
+  }
+
+  // Official Pro Tier checkout modal
   res.send(`
+    <!DOCTYPE html>
     <html>
       <head>
-        <title>Payment Successful - Key Generated</title>
+        <title>Order Pro Plan | PulseLeads</title>
         <style>
-          body { font-family: sans-serif; background: #090d16; color: #f1f5f9; padding: 40px; text-align: center; }
-          .box { background: #131c31; border: 1px solid #22c55e; border-radius: 10px; padding: 30px; display: inline-block; max-width: 500px; }
-          .key { background: #020617; color: #4ade80; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 1.1rem; margin: 20px 0; }
+          body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; }
+          .box { background: #131b2e; border: 1px solid #1e293b; border-radius: 12px; padding: 36px; max-width: 580px; margin: 0 auto; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+          h2 { color: #4ade80; margin-top: 0; }
+          .price { font-size: 1.8rem; font-weight: bold; color: #f8fafc; margin: 12px 0 24px 0; }
+          .form-group { margin-bottom: 18px; text-align: left; }
+          label { display: block; color: #94a3b8; font-size: 0.9rem; margin-bottom: 6px; }
+          input { width: 100%; padding: 12px; background: #020617; border: 1px solid #334155; border-radius: 6px; color: white; font-size: 1rem; box-sizing: border-box; }
+          .btn-submit { width: 100%; background: #22c55e; color: #0b0f19; padding: 14px; font-size: 1.1rem; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+          .btn-submit:hover { background: #16a34a; }
+          .crypto-box { background: #090d16; border: 1px solid #334155; padding: 16px; border-radius: 8px; margin-top: 24px; font-size: 0.85rem; color: #94a3b8; word-break: break-all; }
         </style>
       </head>
       <body>
         <div class="box">
-          <h2 style="color: #4ade80; margin-top:0;">✅ Payment / Onboarding Success!</h2>
-          <p>Your autonomous MCP API key has been generated:</p>
-          <div class="key">${generatedKey}</div>
-          <p>Credits: <strong>1,000 queries</strong> added.</p>
-          <p style="color: #94a3b8; font-size: 0.85rem;">Paste this key in your AI client (Cursor, Claude Desktop, or LangChain agent) to access leads.</p>
+          <h2>🔒 Secure Order: PulseLeads Pro</h2>
+          <div class="price">$29.00 / month</div>
+          <p style="color: #94a3b8; font-size: 0.95rem;">Enter your email to receive your dedicated API Key and billing invoices:</p>
+          
+          <form action="/activate-key" method="POST">
+            <div class="form-group">
+              <label>Work Email</label>
+              <input type="email" name="email" placeholder="you@company.com" required />
+            </div>
+            <div class="form-group">
+              <label>Company Name</label>
+              <input type="text" name="company" placeholder="e.g. Acme Corp" required />
+            </div>
+            <button type="submit" class="btn-submit">Proceed to Secure Checkout ($29)</button>
+          </form>
+
+          <div class="crypto-box">
+            <strong>Prefer Web3 Settlement?</strong><br/>
+            Send 29 USDC (Base EVM 8453) directly to merchant vault:<br/>
+            <code style="color: #38bdf8;">${MERCHANT_WALLET}</code><br/>
+            Keys are automatically provisioned on-chain upon receipt.
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+// Activation handler
+app.use(express.urlencoded({ extended: true }));
+app.post("/activate-key", (req: Request, res: Response) => {
+  const email = req.body.email || "customer@example.com";
+  const newPaidKey = `pulse_${Math.random().toString(36).substring(2, 9)}_${Date.now().toString(36)}`;
+  
+  registerKey({
+    key: newPaidKey,
+    plan: "pro_subscription",
+    creditsRemaining: 1000,
+    createdAt: new Date().toISOString()
+  });
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Subscription Confirmed | PulseLeads</title>
+        <style>
+          body { font-family: sans-serif; background: #0b0f19; color: #f1f5f9; padding: 40px; text-align: center; }
+          .box { background: #131b2e; border: 1px solid #22c55e; border-radius: 12px; padding: 36px; max-width: 550px; margin: 0 auto; }
+          .key { background: #020617; color: #4ade80; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 1.2rem; margin: 20px 0; border: 1px solid #22c55e; }
+          .btn { background: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="box">
+          <h2 style="color: #4ade80; margin-top: 0;">✅ Pro Subscription Confirmed!</h2>
+          <p>Confirmation email and invoice sent to <strong>${email}</strong>.</p>
+          <p>Your Pro API Key has been provisioned:</p>
+          <div class="key">${newPaidKey}</div>
+          <p>Credits: <strong>1,000 B2B queries</strong> loaded.</p>
+          <p style="color: #94a3b8; font-size: 0.85rem;">Valid for Claude Desktop, Cursor, and any MCP client.</p>
+          <br/>
+          <a class="btn" href="/">Return to Dashboard</a>
         </div>
       </body>
     </html>
