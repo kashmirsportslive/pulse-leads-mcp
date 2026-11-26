@@ -1,0 +1,7 @@
+{
+  "$schema": "https://smithery.ai/schema/config.json",
+  "name": "pulse-leads-mcp",
+  "description": "Autonomous High-Intent B2B Prospect Intelligence MCP Server delivering verified decision-maker emails and tech stack insights for AI Agents.",
+  "command": "node",
+  "args": ["dist/index.js"]
+}
