@@ -14,7 +14,7 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
-const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0x79cde05bd775c4c7cb6f5cfeb59856fa44d0f00c";
+const MERCHANT_WALLET = process.env.MERCHANT_WALLET_ADDRESS || "0xacec998f35d926adBD66c60B46cE0AdCd13145bA";
 
 // Setup MCP Server Definition
 const mcpServer = new Server(
