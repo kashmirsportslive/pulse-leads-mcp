@@ -43,6 +43,11 @@ const ipRateLimits = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string, action: string, maxRequests: number, windowMs: number): boolean {
   const now = Date.now();
+  if (ipRateLimits.size > 2000) {
+    for (const [k, v] of ipRateLimits.entries()) {
+      if (now > v.resetAt) ipRateLimits.delete(k);
+    }
+  }
   const key = `${action}:${ip}`;
   const record = ipRateLimits.get(key);
   if (!record || now > record.resetAt) {
@@ -188,7 +193,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     // For shared demo_free_key, keep it available for evaluators without global exhaustion
     // (per-IP rate limit is enforced on HTTP /mcp; stdio/local runs cleanly)
     let remainingAfter = customer.creditsRemaining;
-    if (key !== "demo_free_key") {
+    if (key !== "demo_free_key" && results.length > 0) {
       const deduction = deductCredit(key);
       if (!deduction.success) {
         return {
@@ -760,7 +765,7 @@ app.post("/mcp", async (req: Request, res: Response) => {
       });
     }
 
-    if (method === "notifications/initialized") {
+    if (method === "notifications/initialized" || (typeof method === "string" && method.startsWith("notifications/") && id === undefined)) {
       return id !== undefined
         ? res.json({ jsonrpc: "2.0", id, result: {} })
         : res.status(202).end();

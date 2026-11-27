@@ -132,7 +132,7 @@ export async function verifyBaseTransaction(
       };
     }
 
-    const expectedRecipientTopic = "0x" + merchantWallet.toLowerCase().replace("0x", "").padStart(64, "0");
+    const expectedRecipientTopic = "0x" + merchantWallet.trim().toLowerCase().replace("0x", "").padStart(64, "0");
     let paidAmountUsdc = BigInt(0);
     let validTransferFound = false;
 
