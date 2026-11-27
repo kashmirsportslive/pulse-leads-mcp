@@ -1,3 +1,4 @@
+import dns from "dns";
 import { searchLiveWebLeads } from "./live-leads";
 import { getResolvedContacts } from "./resolved-contacts";
 
@@ -14,6 +15,9 @@ export interface B2BLead {
   intentScore: number; // 0 - 100
   recentHiringTrigger: string;
   sourceUrl?: string;
+  emailDeliverable?: boolean;
+  mailProvider?: string;
+  outreachHook?: string;
 }
 
 const LEADS_DATABASE: B2BLead[] = [
@@ -187,5 +191,41 @@ export async function queryLeads(industryFilter?: string, minIntent: number = 70
     }
   }
 
-  return staticMatches;
+  return Promise.all(
+    staticMatches.map(async (lead) => {
+      const mx = await checkDomainMx(lead.domain);
+      return {
+        ...lead,
+        emailDeliverable: mx.deliverable,
+        mailProvider: mx.provider,
+        outreachHook: `Noticed ${lead.company} is ${lead.recentHiringTrigger.charAt(0).toLowerCase() + lead.recentHiringTrigger.slice(1)} — thought our ${lead.industry} automation workflow could save your ${lead.decisionMakerTitle} team hours each week.`
+      };
+    })
+  );
+}
+
+async function checkDomainMx(domain: string): Promise<{ deliverable: boolean; provider: string }> {
+  const cleanDomain = domain.replace(/^https?:\/\//, "").split("/")[0].trim();
+  if (!cleanDomain || !cleanDomain.includes(".")) {
+    return { deliverable: false, provider: "Unknown" };
+  }
+  try {
+    const records = await Promise.race([
+      dns.promises.resolveMx(cleanDomain),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("MX timeout")), 1500))
+    ]);
+    if (!records || records.length === 0) {
+      return { deliverable: false, provider: "No MX Record" };
+    }
+    const exchange = records[0].exchange.toLowerCase();
+    let provider = "Custom MX";
+    if (exchange.includes("google") || exchange.includes("gmail")) provider = "Google Workspace";
+    else if (exchange.includes("outlook") || exchange.includes("protection.outlook")) provider = "Microsoft 365";
+    else if (exchange.includes("proton")) provider = "Proton Mail";
+    else if (exchange.includes("zoho")) provider = "Zoho Mail";
+    else if (exchange.includes("mimecast") || exchange.includes("pphosted")) provider = "Enterprise Gateway";
+    return { deliverable: true, provider };
+  } catch {
+    return { deliverable: false, provider: "Unverified" };
+  }
 }

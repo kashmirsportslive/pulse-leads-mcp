@@ -72,6 +72,15 @@ Verify a Base Mainnet USDC transaction hash on-chain and receive your active API
 }
 ```
 
+### `export_leads_csv`
+Export matching B2B leads with live DNS/MX deliverability status and personalized outreach hooks in CRM-ready CSV format.
+```json
+{
+  "apiKey": "demo_free_key",
+  "industry": "AI"
+}
+```
+
 ---
 
 ## 📦 One-Click AI Client Installation

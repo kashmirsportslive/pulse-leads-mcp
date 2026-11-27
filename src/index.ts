@@ -236,6 +236,40 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["txHash"]
         }
+      },
+      {
+        name: "export_leads_csv",
+        title: "Export B2B Leads as CSV",
+        description: "Export matching high-intent B2B leads with MX deliverability status and personalized outreach hooks as a CRM-ready CSV string (HubSpot/Salesforce/Sheets compatible). Use find_b2b_prospects instead for JSON output.",
+        annotations: {
+          title: "Export B2B Leads as CSV",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        },
+        inputSchema: {
+          type: "object",
+          properties: {
+            apiKey: {
+              type: "string",
+              minLength: 4,
+              description: "Active PulseLeads API key (e.g. 'demo_free_key' or a purchased key)."
+            },
+            industry: {
+              type: "string",
+              description: "Optional industry filter (e.g. 'AI', 'Fintech', 'SaaS')."
+            },
+            minIntentScore: {
+              type: "number",
+              minimum: 0,
+              maximum: 100,
+              default: 80,
+              description: "Minimum buying intent score from 0 to 100 (default: 80)."
+            }
+          },
+          required: ["apiKey"]
+        }
       }
     ]
   };
@@ -530,6 +564,73 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
             creditsGranted: grantedCredits,
             paidAmountUsdc: verification.paidAmountUsdc,
             blockNumber: verification.blockNumber
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "export_leads_csv") {
+    const key = String(args?.apiKey || "");
+    const customer = getCustomer(key);
+    if (!customer || customer.creditsRemaining <= 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "PaymentRequired",
+              httpCode: 402,
+              message: "Your query credits are exhausted or your API key is invalid.",
+              checkoutUrl: `${SERVER_URL}/checkout?plan=pro`
+            }, null, 2)
+          }
+        ]
+      };
+    }
+
+    const industry = args?.industry ? String(args.industry) : undefined;
+    const minIntent = typeof args?.minIntentScore === "number" ? args.minIntentScore : 80;
+    const results = await queryLeads(industry, minIntent);
+
+    let remainingAfter = customer.creditsRemaining;
+    if (key !== "demo_free_key" && results.length > 0) {
+      const deduction = deductCredit(key);
+      if (!deduction.success) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: JSON.stringify({ error: "PaymentRequired", httpCode: 402, topUpUrl: `${SERVER_URL}/checkout` }) }]
+        };
+      }
+      remainingAfter = deduction.remaining;
+    }
+
+    const csvEscape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = "company,domain,industry,decisionMakerTitle,emailPattern,emailDeliverable,mailProvider,intentScore,outreachHook";
+    const rows = results.map((l) =>
+      [
+        csvEscape(l.company),
+        csvEscape(l.domain),
+        csvEscape(l.industry),
+        csvEscape(l.decisionMakerTitle),
+        csvEscape(l.directEmail || l.verifiedEmailPattern),
+        csvEscape(Boolean(l.emailDeliverable)),
+        csvEscape(l.mailProvider || "Unknown"),
+        csvEscape(l.intentScore),
+        csvEscape(l.outreachHook || "")
+      ].join(",")
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            status: "success",
+            rowCount: results.length,
+            remainingCredits: remainingAfter,
+            csv: [header, ...rows].join("\n")
           }, null, 2)
         }
       ]
@@ -1054,7 +1155,7 @@ app.get("/mcp", (_req: Request, res: Response) => {
     transport: "streamable-http",
     endpoint: `${SERVER_URL}/mcp`,
     protocolVersion: "2024-11-05",
-    tools: ["find_b2b_prospects", "check_account_credits", "get_company_intelligence", "get_pricing_and_checkout", "verify_usdc_payment"]
+    tools: ["find_b2b_prospects", "check_account_credits", "get_company_intelligence", "get_pricing_and_checkout", "verify_usdc_payment", "export_leads_csv"]
   });
 });
 
