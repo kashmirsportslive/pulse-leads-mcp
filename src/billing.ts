@@ -20,6 +20,17 @@ export interface ClaimedTxRecord {
   email?: string;
 }
 
+export interface ClaimedOrderRecord {
+  orderId: string;
+  key: string;
+  plan: "starter" | "pro" | "growth";
+  amountUsd: number;
+  creditsGranted: number;
+  claimedAt: string;
+  refunded?: boolean;
+  email?: string;
+}
+
 export interface TrialClaimResult {
   key: string;
   isNew: boolean;
@@ -35,6 +46,7 @@ export interface DeductResult {
 const DB_FILE = path.join(__dirname, "../data/keys.json");
 const TRIAL_IPS_FILE = path.join(__dirname, "../data/trial_ips.json");
 const CLAIMED_TX_FILE = path.join(__dirname, "../data/claimed_txs.json");
+const CLAIMED_ORDERS_FILE = path.join(__dirname, "../data/claimed_orders.json");
 
 const UPSTASH_URL = (process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
@@ -42,7 +54,8 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 const REDIS_KEYS: Record<string, string> = {
   [DB_FILE]: "pulse:keys",
   [TRIAL_IPS_FILE]: "pulse:trial_ips",
-  [CLAIMED_TX_FILE]: "pulse:claimed_txs"
+  [CLAIMED_TX_FILE]: "pulse:claimed_txs",
+  [CLAIMED_ORDERS_FILE]: "pulse:claimed_orders"
 };
 
 async function upstashCommand(command: unknown[]): Promise<any> {
@@ -149,6 +162,9 @@ function ensureDbExists() {
   }
   if (!fs.existsSync(CLAIMED_TX_FILE)) {
     atomicWriteJson(CLAIMED_TX_FILE, {});
+  }
+  if (!fs.existsSync(CLAIMED_ORDERS_FILE)) {
+    atomicWriteJson(CLAIMED_ORDERS_FILE, {});
   }
 }
 
@@ -312,4 +328,49 @@ export function recordClaimedTx(record: ClaimedTxRecord): void {
   }
   data[record.txHash.toLowerCase()] = record;
   atomicWriteJson(CLAIMED_TX_FILE, data);
+}
+
+export function getClaimedOrder(orderId: string): ClaimedOrderRecord | null {
+  ensureDbExists();
+  try {
+    const raw = fs.readFileSync(CLAIMED_ORDERS_FILE, "utf-8");
+    const data: Record<string, ClaimedOrderRecord> = JSON.parse(raw);
+    return data[orderId] || null;
+  } catch {
+    return null;
+  }
+}
+
+export function recordClaimedOrder(record: ClaimedOrderRecord): void {
+  ensureDbExists();
+  let data: Record<string, ClaimedOrderRecord> = {};
+  try {
+    data = JSON.parse(fs.readFileSync(CLAIMED_ORDERS_FILE, "utf-8"));
+  } catch {
+    data = {};
+  }
+  data[record.orderId] = record;
+  atomicWriteJson(CLAIMED_ORDERS_FILE, data);
+}
+
+export function revokeKeyByOrder(orderId: string): boolean {
+  ensureDbExists();
+  const order = getClaimedOrder(orderId);
+  if (!order) return false;
+
+  // Mark order as refunded
+  order.refunded = true;
+  recordClaimedOrder(order);
+
+  // Zero out remaining credits on the associated API key
+  try {
+    const data: Record<string, CustomerKey> = JSON.parse(fs.readFileSync(DB_FILE, "utf-8"));
+    if (data[order.key]) {
+      data[order.key].creditsRemaining = 0;
+      atomicWriteJson(DB_FILE, data);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

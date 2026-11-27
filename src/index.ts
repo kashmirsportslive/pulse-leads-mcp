@@ -1,11 +1,12 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
-import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx, generateSignedPaidKey, initBillingStore } from "./billing";
+import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx, generateSignedPaidKey, initBillingStore, getClaimedOrder, recordClaimedOrder, revokeKeyByOrder } from "./billing";
 import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
@@ -20,7 +21,12 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({
+  limit: "1mb",
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Catch malformed JSON payloads cleanly without leaking Express stack traces
@@ -874,6 +880,19 @@ app.get("/checkout", (req: Request, res: Response) => {
 
   const currentTier = TIERS[selectedPlan] || TIERS.pro;
   const currentPlanKey = TIERS[selectedPlan] ? selectedPlan : "pro";
+  const cardUrls: Record<string, string | undefined> = {
+    starter: process.env.CARD_CHECKOUT_STARTER_URL,
+    pro: process.env.CARD_CHECKOUT_PRO_URL,
+    growth: process.env.CARD_CHECKOUT_GROWTH_URL
+  };
+  const cardCheckoutUrl = cardUrls[currentPlanKey];
+  const cardCheckoutSection = cardCheckoutUrl
+    ? `<div style="background: #0f172a; border: 1px solid #22c55e; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left;">
+         <h4 style="margin: 0 0 8px 0; color: #4ade80;">💳 Credit / Debit Card (Instant Hosted Checkout)</h4>
+         <p style="margin: 0 0 12px 0; font-size: 0.88rem; color: #cbd5e1;">Pay securely by Visa, Mastercard, Apple Pay, or Google Pay. Your API key activates automatically upon confirmation.</p>
+         <a href="${escapeHtml(cardCheckoutUrl)}" class="btn-submit" style="display: block; text-align: center; text-decoration: none;">Pay ${currentTier.price} with Card &rarr;</a>
+       </div>`
+    : "";
 
   res.send(`
     <!DOCTYPE html>
@@ -911,8 +930,10 @@ app.get("/checkout", (req: Request, res: Response) => {
           <p style="color: #94a3b8; font-size: 0.9rem; margin: 0 0 16px 0;">${currentTier.desc}</p>
 
           <div class="notice-box">
-            🛡️ <strong>Zero-Trust Payment Gate Active:</strong> API keys are automatically generated upon confirmed on-chain settlement on Base.
+            🛡️ <strong>Zero-Trust Payment Gate Active:</strong> API keys are automatically generated upon confirmed settlement.
           </div>
+
+          ${cardCheckoutSection}
 
           <div class="crypto-box">
             <h4 style="margin: 0 0 8px 0; color: #38bdf8;">Web3 Crypto Payment (Base USDC)</h4>
@@ -1118,6 +1139,114 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
       </body>
     </html>
   `);
+});
+
+// Secure Hosted Card Webhook (Lemon Squeezy / Polar.sh compatible)
+app.post("/webhook/card", (req: any, res: Response) => {
+  const secret = process.env.CARD_WEBHOOK_SECRET;
+  if (!secret || !req.rawBody) {
+    return res.status(503).json({ error: "Card webhook not configured" });
+  }
+
+  // Verify HMAC-SHA256 signature (supports X-Signature hex or Polar webhook-signature)
+  const sigHeader = String(req.headers["x-signature"] || req.headers["webhook-signature"] || "").trim();
+  const expectedHex = crypto.createHmac("sha256", secret).update(req.rawBody).digest("hex");
+  const expectedB64 = crypto.createHmac("sha256", secret).update(req.rawBody).digest("base64");
+
+  const sigMatch =
+    (sigHeader.length === expectedHex.length && crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expectedHex))) ||
+    (sigHeader.length === expectedB64.length && crypto.timingSafeEqual(Buffer.from(sigHeader), Buffer.from(expectedB64)));
+
+  if (!sigMatch) {
+    return res.status(401).json({ error: "Invalid webhook signature" });
+  }
+
+  const eventName = String(req.body?.meta?.event_name || req.body?.type || "").toLowerCase();
+  const attrs = req.body?.data?.attributes || req.body?.data || {};
+  const orderId = String(req.body?.data?.id || attrs?.id || "").trim();
+
+  if (!orderId) {
+    return res.status(400).json({ error: "Missing order ID" });
+  }
+
+  // Auto-revoke credits on refund / chargeback
+  if (eventName.includes("refund")) {
+    revokeKeyByOrder(orderId);
+    return res.json({ status: "revoked", orderId });
+  }
+
+  if (eventName !== "order_created" && eventName !== "order_paid" && eventName !== "order.paid") {
+    return res.json({ status: "ignored", eventName });
+  }
+
+  const paymentStatus = String(attrs?.status || "").toLowerCase();
+  if (paymentStatus && paymentStatus !== "paid" && paymentStatus !== "succeeded") {
+    return res.status(400).json({ error: "Order not paid" });
+  }
+
+  // Idempotency: return existing order if already processed
+  const existing = getClaimedOrder(orderId);
+  if (existing) {
+    return res.json({ status: "already_processed", apiKey: existing.key });
+  }
+
+  // Determine plan from amount in cents (900 = $9, 1900 = $19, 2900 = $29) or product name
+  const totalCents = Number(attrs?.total ?? attrs?.amount ?? attrs?.total_amount ?? 0);
+  const productName = String(attrs?.first_order_item?.product_name || attrs?.product?.name || "").toLowerCase();
+
+  let plan: "starter" | "pro" | "growth" = "starter";
+  let credits = 500;
+  let amountUsd = 9;
+
+  if (totalCents >= 2900 || productName.includes("growth")) {
+    plan = "growth"; credits = 3000; amountUsd = 29;
+  } else if (totalCents >= 1900 || productName.includes("pro")) {
+    plan = "pro"; credits = 1500; amountUsd = 19;
+  } else if (totalCents >= 900 || productName.includes("starter")) {
+    plan = "starter"; credits = 500; amountUsd = 9;
+  } else {
+    return res.status(400).json({ error: "Insufficient payment amount" });
+  }
+
+  const newKey = generateSignedPaidKey(plan, `card_${orderId}`);
+  const safeEmail = escapeHtml(String(attrs?.user_email || attrs?.customer_email || "card_customer").slice(0, 120));
+
+  registerKey({
+    key: newKey,
+    plan,
+    creditsRemaining: credits,
+    createdAt: new Date().toISOString()
+  });
+
+  recordClaimedOrder({
+    orderId,
+    key: newKey,
+    plan,
+    amountUsd,
+    creditsGranted: credits,
+    claimedAt: new Date().toISOString(),
+    email: safeEmail
+  });
+
+  return res.json({ status: "provisioned", orderId, plan, creditsGranted: credits });
+});
+
+// Card Success / Order Recovery Page
+app.get("/checkout/card-success", (req: Request, res: Response) => {
+  const orderId = String(req.query.order_id || "").trim();
+  const order = orderId ? getClaimedOrder(orderId) : null;
+
+  if (!order) {
+    return res.send(`<!DOCTYPE html><html><head><title>Processing Order | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center}.box{background:#131b2e;border:1px solid #38bdf8;border-radius:12px;padding:36px;max-width:560px;margin:0 auto}a{color:#38bdf8}</style></head><body><div class="box"><h2>⏳ Payment Received — Finalizing Key</h2><p>If your webhook is still confirming, refresh this page in 5 seconds or email <a href="mailto:adammehfuz@gmail.com">adammehfuz@gmail.com</a> with your Order ID (${escapeHtml(orderId || "N/A")}).</p><p><a href="/checkout">Back to Checkout</a></p></div></body></html>`);
+  }
+
+  if (order.refunded) {
+    return res.status(403).send(`<!DOCTYPE html><html><head><title>Order Refunded | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center}.box{background:#1f1212;border:1px solid #ef4444;border-radius:12px;padding:36px;max-width:560px;margin:0 auto}</style></head><body><div class="box"><h2 style="color:#ef4444">Order Refunded</h2><p>This order has been refunded and its API key has been deactivated.</p></div></body></html>`);
+  }
+
+  const customer = getCustomer(order.key);
+  const credits = customer ? customer.creditsRemaining : order.creditsGranted;
+  return res.send(`<!DOCTYPE html><html><head><title>Card Payment Confirmed | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center}.box{background:#131b2e;border:1px solid #22c55e;border-radius:12px;padding:36px;max-width:560px;margin:0 auto}.key{background:#020617;color:#4ade80;padding:14px;border-radius:8px;font-family:monospace;font-size:1.2rem;margin:20px 0;border:1px solid #22c55e;word-break:break-all}a.btn{background:#0284c7;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block}</style></head><body><div class="box"><h2 style="color:#4ade80">✅ Card Payment Confirmed!</h2><p>Plan: <strong style="text-transform:uppercase">${escapeHtml(order.plan)}</strong> &bull; Credits: <strong>${credits.toLocaleString()}</strong></p><div class="key">${escapeHtml(order.key)}</div><p>Save this key in your Claude Desktop or Cursor MCP config.</p><a class="btn" href="/">Return to Dashboard</a></div></body></html>`);
 });
 
 // Privacy Policy & Terms of Service Pages (Required for Claude & ChatGPT Directories)
