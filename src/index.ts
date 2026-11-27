@@ -536,6 +536,12 @@ app.get("/", (_req: Request, res: Response) => {
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>PulseLeads MCP Gateway | High-Intent B2B Prospect Intelligence</title>
+        <meta name="description" content="Autonomous High-Intent B2B Prospect Intelligence MCP Server for Claude Desktop, Cursor, and AI Agents. Verified decision-maker contacts, tech stacks, and Base USDC settlement." />
+        <meta name="robots" content="index, follow" />
+        <meta property="og:title" content="PulseLeads MCP Gateway | High-Intent B2B Prospect Intelligence" />
+        <meta property="og:description" content="Connect Claude, Cursor, and AI agents to verified B2B prospect intelligence via Model Context Protocol (MCP). Free trial available." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="${SERVER_URL}" />
         <style>
           * { box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f8fafc; margin: 0; padding: 40px 20px; line-height: 1.6; }
