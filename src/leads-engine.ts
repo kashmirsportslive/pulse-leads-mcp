@@ -168,6 +168,14 @@ export async function queryLeads(industryFilter?: string, minIntent: number = 70
     }
   }
 
+  // If user searched a domain (e.g. "stripe.com") with no exact static domain match, crawl public site safely for $0
+  if (normalizedFilter && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalizedFilter) && !staticMatches.some((l) => l.domain.toLowerCase() === normalizedFilter)) {
+    const crawled = await fetchPublicDomainIntel(normalizedFilter);
+    if (crawled) {
+      staticMatches.unshift(crawled);
+    }
+  }
+
   // If user requested a specific industry with fewer than 3 static matches, run live web discovery
   if (normalizedFilter && staticMatches.length < 3) {
     try {
@@ -229,4 +237,102 @@ async function checkDomainMx(domain: string): Promise<{ deliverable: boolean; pr
   } catch {
     return { deliverable: false, provider: "Unverified" };
   }
+}
+
+function isPrivateIp(ip: string): boolean {
+  return (
+    ip === "127.0.0.1" ||
+    ip === "::1" ||
+    ip.startsWith("10.") ||
+    ip.startsWith("192.168.") ||
+    ip.startsWith("169.254.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip) ||
+    ip.startsWith("fc") ||
+    ip.startsWith("fd") ||
+    ip.startsWith("fe80:")
+  );
+}
+
+async function fetchPublicDomainIntel(domain: string): Promise<B2BLead | null> {
+  const clean = domain.trim().toLowerCase().replace(/^www\./, "");
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(clean) || clean.endsWith(".local") || clean.endsWith(".internal")) {
+    return null;
+  }
+
+  try {
+    const lookup = await dns.promises.lookup(clean);
+    if (!lookup?.address || isPrivateIp(lookup.address)) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  const paths = ["/", "/contact", "/about"];
+  const foundEmails = new Set<string>();
+  let linkedinUrl: string | undefined;
+  let companyTitle = clean.split(".")[0];
+  companyTitle = companyTitle.charAt(0).toUpperCase() + companyTitle.slice(1);
+  let description = "Active public B2B company website.";
+
+  for (const p of paths) {
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`https://${clean}${p}`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "PulseLeads-Bot/1.0 (+https://pulse-leads-mcp.onrender.com)" },
+        redirect: "follow"
+      });
+      clearTimeout(t);
+      if (!res.ok) continue;
+
+      const html = (await res.text()).slice(0, 150000);
+      if (p === "/") {
+        const titleMatch = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+        if (titleMatch?.[1]) {
+          const rawTitle = titleMatch[1].replace(/\s+/g, " ").trim().split(/[|\-–—]/)[0].trim();
+          if (rawTitle.length >= 2 && rawTitle.length <= 45) companyTitle = rawTitle;
+        }
+        const descMatch = /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i.exec(html);
+        if (descMatch?.[1]) {
+          description = descMatch[1].trim().slice(0, 180);
+        }
+      }
+
+      const emailMatches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+      for (const em of emailMatches) {
+        const lower = em.toLowerCase();
+        if (!lower.endsWith(".png") && !lower.endsWith(".jpg") && !lower.endsWith(".svg") && !lower.includes("example.")) {
+          foundEmails.add(lower);
+        }
+      }
+
+      if (!linkedinUrl) {
+        const liMatch = /https?:\/\/(www\.)?linkedin\.com\/company\/[a-zA-Z0-9_-]+/i.exec(html);
+        if (liMatch) linkedinUrl = liMatch[0];
+      }
+
+      if (foundEmails.size >= 2 && linkedinUrl) break;
+    } catch {
+      // Ignore unreachable subpaths
+    }
+  }
+
+  const emails = Array.from(foundEmails);
+  const primaryEmail = emails.find((e) => e.endsWith(`@${clean}`)) || emails[0];
+
+  return {
+    company: companyTitle,
+    domain: clean,
+    industry: "Web & B2B",
+    verifiedEmailPattern: primaryEmail || `{first}@${clean}`,
+    directEmail: primaryEmail,
+    decisionMakerTitle: "Founder / Leadership Team",
+    linkedinSearchUrl: linkedinUrl || `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(companyTitle)}`,
+    techStack: ["Web"],
+    intentScore: primaryEmail ? 86 : 78,
+    recentHiringTrigger: description,
+    sourceUrl: `https://${clean}`
+  };
 }
