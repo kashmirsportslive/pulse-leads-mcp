@@ -1250,6 +1250,21 @@ app.get("/checkout/card-success", (req: Request, res: Response) => {
   return res.send(`<!DOCTYPE html><html><head><title>Card Payment Confirmed | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center}.box{background:#131b2e;border:1px solid #22c55e;border-radius:12px;padding:36px;max-width:560px;margin:0 auto}.key{background:#020617;color:#4ade80;padding:14px;border-radius:8px;font-family:monospace;font-size:1.2rem;margin:20px 0;border:1px solid #22c55e;word-break:break-all}a.btn{background:#0284c7;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block}</style></head><body><div class="box"><h2 style="color:#4ade80">✅ Card Payment Confirmed!</h2><p>Plan: <strong style="text-transform:uppercase">${escapeHtml(order.plan)}</strong> &bull; Credits: <strong>${credits.toLocaleString()}</strong></p><div class="key">${escapeHtml(order.key)}</div><p>Save this key in your Claude Desktop or Cursor MCP config.</p><a class="btn" href="/">Return to Dashboard</a></div></body></html>`);
 });
 
+// SEO robots.txt & sitemap.xml
+app.get("/robots.txt", (_req: Request, res: Response) => {
+  res.type("text/plain").send(`User-agent: *\nAllow: /\nSitemap: ${SERVER_URL}/sitemap.xml\n`);
+});
+
+app.get("/sitemap.xml", (_req: Request, res: Response) => {
+  res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SERVER_URL}/</loc><priority>1.0</priority></url>
+  <url><loc>${SERVER_URL}/checkout</loc><priority>0.8</priority></url>
+  <url><loc>${SERVER_URL}/privacy</loc><priority>0.3</priority></url>
+  <url><loc>${SERVER_URL}/terms</loc><priority>0.3</priority></url>
+</urlset>`);
+});
+
 // Privacy Policy & Terms of Service Pages (Required for Claude & ChatGPT Directories)
 app.get("/privacy", (_req: Request, res: Response) => {
   res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Privacy Policy | PulseLeads MCP</title><style>body{font-family:sans-serif;background:#0b0f19;color:#e2e8f0;padding:40px;max-width:760px;margin:0 auto;line-height:1.7}h1,h2{color:#38bdf8}a{color:#38bdf8}</style></head><body><h1>Privacy Policy</h1><p>Effective Date: November 27, 2026</p><p>PulseLeads MCP provides B2B prospect intelligence via the Model Context Protocol (MCP). We collect only the minimum operational data needed to enforce rate limits, prevent abuse, and verify Base Mainnet USDC payments (submitted transaction hashes and optional work email for receipts).</p><h2>Data Usage</h2><ul><li>We do not sell personal data or query logs to third parties.</li><li>On-chain USDC payments are verified directly against public Base Mainnet RPC nodes.</li><li>Support inquiries: <a href="mailto:adammehfuz@gmail.com">adammehfuz@gmail.com</a>.</li></ul><p><a href="/">Back to Home</a></p></body></html>`);

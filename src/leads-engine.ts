@@ -207,7 +207,7 @@ export async function queryLeads(industryFilter?: string, minIntent: number = 70
         ...lead,
         emailDeliverable: mx.deliverable,
         mailProvider: mx.provider,
-        outreachHook: `Noticed ${lead.company} is actively ${lead.recentHiringTrigger.startsWith("AI") ? lead.recentHiringTrigger : lead.recentHiringTrigger.charAt(0).toLowerCase() + lead.recentHiringTrigger.slice(1)} — thought our ${lead.industry} automation workflow could save your ${lead.decisionMakerTitle} team hours each week.`
+        outreachHook: `Saw what ${lead.company} is building ("${lead.recentHiringTrigger}") — thought our ${lead.industry} workflow could save your ${lead.decisionMakerTitle} team hours each week.`
       };
     })
   );
