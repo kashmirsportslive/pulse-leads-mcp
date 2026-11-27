@@ -20,9 +20,9 @@ Autonomous High-Intent B2B Prospect Intelligence for AI Agents, Developers, and 
 
 PulseLeads MCP connects frontier LLM models (Claude Desktop, Cursor, LangChain, OpenAI Agents) directly to real-time high-intent B2B prospect intelligence.
 
-- **Instant Lead Discovery**: Filter by industry (`AI`, `Fintech`, `HealthTech`, `Cybersecurity`, `Logistics`).
+- **Instant Lead Discovery**: Filter by industry (`AI`, `Fintech`, `Real Estate`, `HealthTech`, `Cybersecurity`, `SaaS`, or any custom vertical via live discovery).
 - **Verified Decision Makers**: Direct C-level & VP contacts with verified email structures and live LinkedIn profiles.
-- **Autonomous Monetization**: Built-in Stripe subscription checkout and native `x402` EVM USDC micropayments.
+- **Autonomous Monetization**: Native on-chain Base USDC settlement and `x402` EVM micropayment support with instant cryptographic key provisioning.
 
 ---
 
@@ -51,18 +51,26 @@ Check current active credits, tier status, and top-up links.
 ## 📦 One-Click AI Client Installation
 
 ### Via Claude Desktop (`claude_desktop_config.json`)
+Connect directly to the 24/7 hosted MCP endpoint using `mcp-remote`:
 ```json
 {
   "mcpServers": {
     "pulse-leads": {
       "command": "npx",
-      "args": ["-y", "pulse-leads-mcp"]
+      "args": ["-y", "mcp-remote", "https://pulse-leads-mcp.onrender.com/mcp"]
     }
   }
 }
 ```
 
-### Remote SSE / HTTP Stream Connection
+### Local Stdio Mode (From Source)
+```bash
+git clone https://github.com/kashmirsportslive/pulse-leads-mcp.git
+cd pulse-leads-mcp && npm install && npm run build
+node dist/index.js --stdio
+```
+
+### Remote Streamable HTTP Connection
 Connect Cursor or any remote agent directly to:
 ```text
 https://pulse-leads-mcp.onrender.com/mcp

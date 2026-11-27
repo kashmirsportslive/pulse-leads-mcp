@@ -5,14 +5,15 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
-import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx } from "./billing";
+import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx, generateSignedPaidKey } from "./billing";
 import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
@@ -155,7 +156,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
               httpCode: 402,
               message: "Your query credits are exhausted or your API key is invalid.",
               paymentOptions: {
-                stripe_official_checkout: `${SERVER_URL}/checkout?plan=pro`,
+                checkout_portal: `${SERVER_URL}/checkout?plan=pro`,
                 x402_micropayment: {
                   chain: "Base (EVM 8453)",
                   currency: "USDC",
@@ -163,7 +164,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
                   recipientWallet: MERCHANT_WALLET,
                   invoiceId: `inv_${Date.now()}`
                 },
-                free_trial: "You can test with apiKey: 'demo_free_key'"
+                free_trial: "You can test with apiKey: 'demo_free_key' or claim a personal key at /checkout?plan=trial"
               }
             }, null, 2)
           }
@@ -171,9 +172,13 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    // Deduct credit atomically and verify success
-    const deducted = deductCredit(key);
-    if (!deducted) {
+    const industry = args?.industry ? String(args.industry) : undefined;
+    const minIntent = typeof args?.minIntentScore === "number" ? args.minIntentScore : 80;
+    const results = await queryLeads(industry, minIntent);
+
+    // Deduct credit atomically only when leads are delivered
+    const deduction = deductCredit(key);
+    if (!deduction.success) {
       return {
         isError: true,
         content: [
@@ -190,17 +195,13 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    const industry = args?.industry ? String(args.industry) : undefined;
-    const minIntent = typeof args?.minIntentScore === "number" ? args.minIntentScore : 80;
-    const results = queryLeads(industry, minIntent);
-
     return {
       content: [
         {
           type: "text",
           text: JSON.stringify({
             status: "success",
-            remainingCredits: customer.creditsRemaining - 1,
+            remainingCredits: deduction.remaining,
             count: results.length,
             leads: results
           }, null, 2)
@@ -348,6 +349,7 @@ app.get("/checkout", (req: Request, res: Response) => {
   if (selectedPlan === "trial" || selectedPlan === "free_trial") {
     const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
     const clientIp = rawIp.split(",")[0].trim();
+    const safeIp = escapeHtml(clientIp);
     const claim = claimOrGetTrialKey(clientIp);
 
     if (claim.exhausted) {
@@ -365,7 +367,7 @@ app.get("/checkout", (req: Request, res: Response) => {
           <body>
             <div class="box">
               <h2 style="color: #ef4444; margin-top: 0;">⚠️ Free Trial Credits Exhausted</h2>
-              <p>You have already utilized all <strong>20 free evaluation queries</strong> assigned to your network IP (${clientIp}).</p>
+              <p>You have already utilized all <strong>20 free evaluation queries</strong> assigned to your network IP (${safeIp}).</p>
               <p style="color: #94a3b8; font-size: 0.9rem;">To continue querying high-intent B2B prospect intelligence, upgrade to our high-speed paid tiers starting at only <strong>$9 for 500 queries</strong>.</p>
               <a class="btn" style="background: #22c55e; color: #0b0f19;" href="/checkout?plan=starter">Upgrade to Starter ($9 for 500 Credits)</a>
               <br/><br/>
@@ -391,7 +393,7 @@ app.get("/checkout", (req: Request, res: Response) => {
         </head>
         <body>
           <div class="box">
-            <span class="badge-ip">🔒 Limit: 1 Trial Key Per Network IP (${clientIp})</span>
+            <span class="badge-ip">🔒 Limit: 1 Trial Key Per Network IP (${safeIp})</span>
             <h2 style="color: #38bdf8; margin-top: 0;">${claim.isNew ? "🎉 Free Trial Key Activated!" : "ℹ️ Your Active Free Trial Key"}</h2>
             <p>${claim.isNew ? "You have received <strong>20 free query credits</strong> to evaluate the API." : `You have already claimed a free trial. You have <strong>${claim.creditsRemaining} / 20 credits</strong> remaining.`}</p>
             <div class="key">${claim.key}</div>
@@ -515,7 +517,6 @@ app.get("/checkout", (req: Request, res: Response) => {
 });
 
 // Strict Activation handler - ONLY generates key if valid payment proof exists
-app.use(express.urlencoded({ extended: true }));
 app.post("/verify-payment", async (req: Request, res: Response) => {
   const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
   const clientIp = rawIp.split(",")[0].trim();
@@ -613,10 +614,10 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
     `);
   }
 
-  // Generate verified key ONLY after confirmed on-chain settlement
+  // Generate verified HMAC-signed key ONLY after confirmed on-chain settlement
   const grantedPlan = result.matchedPlan || "pro";
   const grantedCredits = result.grantedCredits || 1500;
-  const newPaidKey = `pulse_${grantedPlan}_${Date.now().toString(36)}`;
+  const newPaidKey = generateSignedPaidKey(grantedPlan, cleanTx);
 
   registerKey({
     key: newPaidKey,
@@ -678,6 +679,17 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // MCP JSON-RPC Gateway endpoint (Streamable HTTP transport)
 app.post("/mcp", async (req: Request, res: Response) => {
+  const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
+  const clientIp = rawIp.split(",")[0].trim();
+
+  if (!checkRateLimit(clientIp, "mcp_rpc", 60, 60000)) {
+    return res.status(429).json({
+      jsonrpc: "2.0",
+      id: req.body?.id ?? null,
+      error: { code: -32029, message: "Rate limit exceeded (60 requests/min). Please slow down." }
+    });
+  }
+
   try {
     const { method, id } = req.body || {};
 
@@ -706,6 +718,14 @@ app.post("/mcp", async (req: Request, res: Response) => {
       return res.json({ jsonrpc: "2.0", id, result: {} });
     }
 
+    if (method === "resources/list") {
+      return res.json({ jsonrpc: "2.0", id, result: { resources: [] } });
+    }
+
+    if (method === "prompts/list") {
+      return res.json({ jsonrpc: "2.0", id, result: { prompts: [] } });
+    }
+
     if (method === "tools/list") {
       const handler = (mcpServer as any)._requestHandlers.get("tools/list");
       const result = await handler(req.body);
@@ -724,7 +744,7 @@ app.post("/mcp", async (req: Request, res: Response) => {
   }
 });
 
-if (process.argv.includes("--stdio")) {
+if (process.argv.includes("--stdio") || process.env.MCP_TRANSPORT === "stdio") {
   const transport = new StdioServerTransport();
   mcpServer.connect(transport).catch((err) => {
     console.error("[PulseLeads MCP] Stdio error:", err);
