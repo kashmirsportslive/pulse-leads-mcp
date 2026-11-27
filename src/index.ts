@@ -99,7 +99,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "find_b2b_prospects",
         title: "Find High-Intent B2B Prospects",
-        description: "Autonomous High-Intent B2B Tech Leads Finder. Returns verified company domains, decision-maker titles, verified email patterns, and hiring intent. Requires an active API key with remaining query credits.",
+        description: "Search and filter multiple high-intent B2B companies by industry and buying intent score. Returns company domains, decision-maker titles, verified email patterns, tech stacks, and hiring triggers. Use get_company_intelligence instead when looking up one specific company or domain.",
         annotations: {
           title: "Find High-Intent B2B Prospects",
           readOnlyHint: true,
@@ -112,15 +112,19 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             apiKey: {
               type: "string",
-              description: "Customer API key. Free trial evaluation key: 'demo_free_key', or your purchased Pro key."
+              minLength: 4,
+              description: "Active PulseLeads API key. Use 'demo_free_key' for evaluation (5 queries/24h per IP), or a purchased key."
             },
             industry: {
               type: "string",
-              description: "Filter by industry (e.g. 'AI', 'Fintech', 'Real Estate', 'PropTech', 'HealthTech', 'Supply Chain')"
+              description: "Industry keyword filter (e.g. 'AI', 'Fintech', 'Real Estate', 'PropTech', 'HealthTech', 'Cybersecurity', 'SaaS'). Leave empty for all industries."
             },
             minIntentScore: {
               type: "number",
-              description: "Minimum buying intent score between 0 and 100 (Default: 80)"
+              minimum: 0,
+              maximum: 100,
+              default: 80,
+              description: "Minimum buying intent score from 0 to 100 (default: 80)."
             }
           },
           required: ["apiKey"]
@@ -129,7 +133,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "check_account_credits",
         title: "Check Account Credits",
-        description: "Check your remaining query credits, subscription plan, or top-up options.",
+        description: "Check remaining query credits, active subscription tier, and top-up checkout URL for an existing PulseLeads API key.",
         annotations: {
           title: "Check Account Credits",
           readOnlyHint: true,
@@ -142,7 +146,8 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             apiKey: {
               type: "string",
-              description: "Your API Key"
+              minLength: 4,
+              description: "Existing PulseLeads API key to inspect."
             }
           },
           required: ["apiKey"]
@@ -151,7 +156,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "get_company_intelligence",
         title: "Get Company Intelligence",
-        description: "Retrieve detailed intelligence, decision-maker email patterns, and hiring triggers for a specific company name or domain.",
+        description: "Look up intelligence for one specific company name or domain. Returns decision-maker name/title, direct or pattern email, LinkedIn search URL, tech stack, and hiring triggers. Use find_b2b_prospects instead to browse companies by industry.",
         annotations: {
           title: "Get Company Intelligence",
           readOnlyHint: true,
@@ -164,11 +169,13 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             apiKey: {
               type: "string",
-              description: "Customer API key (e.g. 'demo_free_key' or your purchased key)."
+              minLength: 4,
+              description: "Active PulseLeads API key (e.g. 'demo_free_key' or a purchased key)."
             },
             companyOrDomain: {
               type: "string",
-              description: "Target company name or domain (e.g. 'anthropic.com', 'Vercel', 'cloudscale.ai')"
+              minLength: 2,
+              description: "Exact company name or domain to look up (e.g. 'anthropic.com', 'Vercel', 'cloudscale.ai')."
             }
           },
           required: ["apiKey", "companyOrDomain"]
@@ -177,7 +184,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "get_pricing_and_checkout",
         title: "Get Pricing and Checkout Info",
-        description: "Get current PulseLeads pricing tiers, free trial details, checkout links, and Base Mainnet USDC payment instructions. No API key required.",
+        description: "Retrieve PulseLeads pricing tiers (Free Trial, Starter $9, Pro $19, Growth $29), checkout links, and Base Mainnet USDC payment instructions. No API key required.",
         annotations: {
           title: "Get Pricing and Checkout Info",
           readOnlyHint: true,
@@ -190,7 +197,8 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             plan: {
               type: "string",
-              description: "Optional plan filter: 'trial', 'starter', 'pro', or 'growth'"
+              enum: ["trial", "starter", "pro", "growth"],
+              description: "Optional plan filter ('trial', 'starter', 'pro', or 'growth'). Omit to return all plans."
             }
           }
         }
@@ -198,7 +206,7 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "verify_usdc_payment",
         title: "Verify Base USDC Payment",
-        description: "Verify a Base Mainnet USDC transaction hash on-chain and immediately provision an active PulseLeads API key.",
+        description: "Verify a confirmed Base Mainnet (EVM 8453) USDC transaction hash on-chain and immediately provision an active PulseLeads API key with matching credits.",
         annotations: {
           title: "Verify Base USDC Payment",
           readOnlyHint: false,
@@ -211,15 +219,19 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             txHash: {
               type: "string",
-              description: "66-character Base Mainnet transaction hash starting with 0x"
+              pattern: "^0x[a-fA-F0-9]{64}$",
+              description: "66-character Base Mainnet transaction hash starting with 0x."
             },
             plan: {
               type: "string",
-              description: "Target plan: 'starter' ($9 / 500 credits), 'pro' ($19 / 1500 credits), or 'growth' ($29 / 3000 credits)"
+              enum: ["starter", "pro", "growth"],
+              default: "pro",
+              description: "Purchased plan tier: 'starter' ($9 / 500 credits), 'pro' ($19 / 1500 credits), or 'growth' ($29 / 3000 credits)."
             },
             email: {
               type: "string",
-              description: "Optional work email for receipt tracking"
+              format: "email",
+              description: "Optional work email address for payment receipt tracking."
             }
           },
           required: ["txHash"]
