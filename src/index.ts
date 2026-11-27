@@ -734,6 +734,14 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+// Glama Connector Ownership Verification
+app.get(["/mcp/.well-known/glama.json", "/.well-known/glama.json"], (_req: Request, res: Response) => {
+  res.json({
+    "$schema": "https://glama.ai/mcp/schemas/connector.json",
+    "claim": "glama_claim_iQyOMpALRpl7HGMq6vVNXsLGtyNKivxa"
+  });
+});
+
 // MCP Gateway Info endpoint for GET probes
 app.get("/mcp", (_req: Request, res: Response) => {
   res.json({
