@@ -98,7 +98,15 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "find_b2b_prospects",
+        title: "Find High-Intent B2B Prospects",
         description: "Autonomous High-Intent B2B Tech Leads Finder. Returns verified company domains, decision-maker titles, verified email patterns, and hiring intent. Requires an active API key with remaining query credits.",
+        annotations: {
+          title: "Find High-Intent B2B Prospects",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        },
         inputSchema: {
           type: "object",
           properties: {
@@ -120,7 +128,15 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "check_account_credits",
+        title: "Check Account Credits",
         description: "Check your remaining query credits, subscription plan, or top-up options.",
+        annotations: {
+          title: "Check Account Credits",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false
+        },
         inputSchema: {
           type: "object",
           properties: {
@@ -134,7 +150,15 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_company_intelligence",
+        title: "Get Company Intelligence",
         description: "Retrieve detailed intelligence, decision-maker email patterns, and hiring triggers for a specific company name or domain.",
+        annotations: {
+          title: "Get Company Intelligence",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        },
         inputSchema: {
           type: "object",
           properties: {
@@ -152,7 +176,15 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_pricing_and_checkout",
+        title: "Get Pricing and Checkout Info",
         description: "Get current PulseLeads pricing tiers, free trial details, checkout links, and Base Mainnet USDC payment instructions. No API key required.",
+        annotations: {
+          title: "Get Pricing and Checkout Info",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false
+        },
         inputSchema: {
           type: "object",
           properties: {
@@ -165,7 +197,15 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "verify_usdc_payment",
+        title: "Verify Base USDC Payment",
         description: "Verify a Base Mainnet USDC transaction hash on-chain and immediately provision an active PulseLeads API key.",
+        annotations: {
+          title: "Verify Base USDC Payment",
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true
+        },
         inputSchema: {
           type: "object",
           properties: {
@@ -959,6 +999,15 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
       </body>
     </html>
   `);
+});
+
+// Privacy Policy & Terms of Service Pages (Required for Claude & ChatGPT Directories)
+app.get("/privacy", (_req: Request, res: Response) => {
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Privacy Policy | PulseLeads MCP</title><style>body{font-family:sans-serif;background:#0b0f19;color:#e2e8f0;padding:40px;max-width:760px;margin:0 auto;line-height:1.7}h1,h2{color:#38bdf8}a{color:#38bdf8}</style></head><body><h1>Privacy Policy</h1><p>Effective Date: November 27, 2026</p><p>PulseLeads MCP provides B2B prospect intelligence via the Model Context Protocol (MCP). We collect only the minimum operational data needed to enforce rate limits, prevent abuse, and verify Base Mainnet USDC payments (submitted transaction hashes and optional work email for receipts).</p><h2>Data Usage</h2><ul><li>We do not sell personal data or query logs to third parties.</li><li>On-chain USDC payments are verified directly against public Base Mainnet RPC nodes.</li><li>Support inquiries: <a href="mailto:adammehfuz@gmail.com">adammehfuz@gmail.com</a>.</li></ul><p><a href="/">Back to Home</a></p></body></html>`);
+});
+
+app.get("/terms", (_req: Request, res: Response) => {
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Terms of Service | PulseLeads MCP</title><style>body{font-family:sans-serif;background:#0b0f19;color:#e2e8f0;padding:40px;max-width:760px;margin:0 auto;line-height:1.7}h1,h2{color:#38bdf8}a{color:#38bdf8}</style></head><body><h1>Terms of Service</h1><p>Effective Date: November 27, 2026</p><p>By using PulseLeads MCP, you agree to use the provided B2B intelligence responsibly and in compliance with applicable laws.</p><h2>Payments & Credits</h2><ul><li>Paid API keys are provisioned automatically upon confirmed Base Mainnet USDC settlement to our merchant vault.</li><li>Each transaction hash may be redeemed once within 7 days of confirmation.</li><li>For billing or technical support, contact <a href="mailto:adammehfuz@gmail.com">adammehfuz@gmail.com</a>.</li></ul><p><a href="/">Back to Home</a></p></body></html>`);
 });
 
 // Lightweight Health Check Endpoint for Render & Uptime Monitors
