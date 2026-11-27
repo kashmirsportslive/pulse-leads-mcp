@@ -46,15 +46,34 @@ export async function searchLiveWebLeads(query: string, maxResults: number = 8):
 
             let cleanSnippet = (match[3] || "").replace(/<[^>]+>/g, "").trim();
             
-            // Extract domain
+            // Extract domain and company name (handle LinkedIn / Crunchbase directory URLs cleanly)
             let domain = "";
             let companyName = "";
             try {
               const parsed = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
-              domain = parsed.hostname.replace(/^www\./, "");
-              companyName = domain.split(".")[0];
-              companyName = companyName.charAt(0).toUpperCase() + companyName.slice(1);
-            } catch (e) {
+              const host = parsed.hostname.replace(/^www\./, "");
+              if (host.includes("linkedin.com") && parsed.pathname.includes("/company/")) {
+                const slug = parsed.pathname.split("/company/")[1]?.split("/")[0] || "tech-company";
+                companyName = slug
+                  .split("-")
+                  .filter(Boolean)
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+                domain = `${slug.replace(/-/g, "")}.com`;
+              } else if (host.includes("crunchbase.com") && parsed.pathname.includes("/organization/")) {
+                const slug = parsed.pathname.split("/organization/")[1]?.split("/")[0] || "tech-company";
+                companyName = slug
+                  .split("-")
+                  .filter(Boolean)
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+                domain = `${slug.replace(/-/g, "")}.com`;
+              } else {
+                domain = host;
+                const base = domain.split(".")[0] || "Tech";
+                companyName = base.charAt(0).toUpperCase() + base.slice(1);
+              }
+            } catch {
               domain = rawUrl;
               companyName = "Tech Venture";
             }

@@ -36,7 +36,15 @@ const DB_FILE = path.join(__dirname, "../data/keys.json");
 const TRIAL_IPS_FILE = path.join(__dirname, "../data/trial_ips.json");
 const CLAIMED_TX_FILE = path.join(__dirname, "../data/claimed_txs.json");
 
-const KEY_SIGNING_SECRET = process.env.KEY_SIGNING_SECRET || "pulseleads_hmac_v1_change_in_prod";
+const KEY_SIGNING_SECRET = (() => {
+  if (process.env.KEY_SIGNING_SECRET && process.env.KEY_SIGNING_SECRET.length >= 16) {
+    return process.env.KEY_SIGNING_SECRET;
+  }
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[PulseLeads Billing] WARNING: KEY_SIGNING_SECRET env var not set; using ephemeral runtime secret.");
+  }
+  return crypto.randomBytes(32).toString("hex");
+})();
 
 const PLAN_CREDITS: Record<string, number> = {
   starter: 500,

@@ -57,12 +57,12 @@ async function runAutomatedTests() {
   });
   console.log("Execution Result:\n", callResp1?.result?.content?.[0]?.text);
 
-  // 3. Test Paywall Rejection (Empty or Invalid key -> returns 402 Payment Required)
-  console.log("\n[Test 3] Testing Paywall Enforcement with an invalid/exhausted key...");
+  // 3. Test Paywall Rejection (Invalid or blocked key -> returns 402 Payment Required)
+  console.log("\n[Test 3] Testing Paywall Enforcement with invalid/blocked keys...");
   const paywallResp = await postRpc("tools/call", {
     name: "find_b2b_prospects",
     arguments: {
-      apiKey: "expired_or_invalid_key",
+      apiKey: "premium_partner_key",
       industry: "Fintech"
     }
   });

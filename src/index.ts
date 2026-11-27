@@ -11,9 +11,18 @@ import { verifyBaseTransaction } from "./onchain-verifier";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+function getClientIp(req: Request): string {
+  const cfIp = req.headers["cf-connecting-ip"];
+  if (typeof cfIp === "string" && cfIp.trim()) return cfIp.trim();
+  const trueIp = req.headers["true-client-ip"];
+  if (typeof trueIp === "string" && trueIp.trim()) return trueIp.trim();
+  return req.ip || req.socket.remoteAddress || "127.0.0.1";
+}
 
 const PORT = process.env.PORT || 3000;
 const SERVER_URL = process.env.SERVER_URL || `https://pulse-leads-mcp.onrender.com`;
@@ -176,23 +185,28 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     const minIntent = typeof args?.minIntentScore === "number" ? args.minIntentScore : 80;
     const results = await queryLeads(industry, minIntent);
 
-    // Deduct credit atomically only when leads are delivered
-    const deduction = deductCredit(key);
-    if (!deduction.success) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              error: "PaymentRequired",
-              httpCode: 402,
-              message: "Your query credits are exhausted or could not be deducted. Please top up your key.",
-              topUpUrl: `${SERVER_URL}/checkout`
-            }, null, 2)
-          }
-        ]
-      };
+    // For shared demo_free_key, keep it available for evaluators without global exhaustion
+    // (per-IP rate limit is enforced on HTTP /mcp; stdio/local runs cleanly)
+    let remainingAfter = customer.creditsRemaining;
+    if (key !== "demo_free_key") {
+      const deduction = deductCredit(key);
+      if (!deduction.success) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "PaymentRequired",
+                httpCode: 402,
+                message: "Your query credits are exhausted or could not be deducted. Please top up your key.",
+                topUpUrl: `${SERVER_URL}/checkout`
+              }, null, 2)
+            }
+          ]
+        };
+      }
+      remainingAfter = deduction.remaining;
     }
 
     return {
@@ -201,7 +215,7 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
           type: "text",
           text: JSON.stringify({
             status: "success",
-            remainingCredits: deduction.remaining,
+            remainingCredits: remainingAfter,
             count: results.length,
             leads: results
           }, null, 2)
@@ -347,8 +361,7 @@ app.get("/checkout", (req: Request, res: Response) => {
   const selectedPlan = String(req.query.plan || "pro").toLowerCase();
   
   if (selectedPlan === "trial" || selectedPlan === "free_trial") {
-    const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
-    const clientIp = rawIp.split(",")[0].trim();
+    const clientIp = getClientIp(req);
     const safeIp = escapeHtml(clientIp);
     const claim = claimOrGetTrialKey(clientIp);
 
@@ -518,8 +531,7 @@ app.get("/checkout", (req: Request, res: Response) => {
 
 // Strict Activation handler - ONLY generates key if valid payment proof exists
 app.post("/verify-payment", async (req: Request, res: Response) => {
-  const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
-  const clientIp = rawIp.split(",")[0].trim();
+  const clientIp = getClientIp(req);
 
   // Rate Limiting: Max 12 attempts per minute per IP
   if (!checkRateLimit(clientIp, "verify_payment", 12, 60000)) {
@@ -539,7 +551,7 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
   const { txHash, email, plan } = req.body || {};
   const cleanTx = String(txHash || "").trim().toLowerCase();
   const selectedPlan = String(plan || "pro").toLowerCase();
-  const safeEmail = escapeHtml(email || "customer");
+  const safeEmail = escapeHtml(String(email || "customer").slice(0, 120));
   const safeTx = escapeHtml(cleanTx || "EMPTY");
 
   // 1. REPLAY PREVENTION: Check if transaction hash has already been redeemed
@@ -677,10 +689,21 @@ app.get("/health", (_req: Request, res: Response) => {
   });
 });
 
+// MCP Gateway Info endpoint for GET probes
+app.get("/mcp", (_req: Request, res: Response) => {
+  res.json({
+    name: "pulse-leads-mcp",
+    version: "1.0.0",
+    transport: "streamable-http",
+    endpoint: `${SERVER_URL}/mcp`,
+    protocolVersion: "2024-11-05",
+    tools: ["find_b2b_prospects", "check_account_credits"]
+  });
+});
+
 // MCP JSON-RPC Gateway endpoint (Streamable HTTP transport)
 app.post("/mcp", async (req: Request, res: Response) => {
-  const rawIp = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "127.0.0.1";
-  const clientIp = rawIp.split(",")[0].trim();
+  const clientIp = getClientIp(req);
 
   if (!checkRateLimit(clientIp, "mcp_rpc", 60, 60000)) {
     return res.status(429).json({
@@ -688,6 +711,35 @@ app.post("/mcp", async (req: Request, res: Response) => {
       id: req.body?.id ?? null,
       error: { code: -32029, message: "Rate limit exceeded (60 requests/min). Please slow down." }
     });
+  }
+
+  // Per-IP daily cap on shared demo_free_key to prevent bulk scraping while keeping evaluation open
+  if (
+    req.body?.method === "tools/call" &&
+    req.body?.params?.name === "find_b2b_prospects" &&
+    req.body?.params?.arguments?.apiKey === "demo_free_key"
+  ) {
+    if (!checkRateLimit(clientIp, "demo_free_key_daily", 5, 86400000)) {
+      return res.json({
+        jsonrpc: "2.0",
+        id: req.body?.id ?? null,
+        result: {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "PaymentRequired",
+                httpCode: 402,
+                message: "Daily demo_free_key limit (5 queries/24h) reached for your IP. Claim a personal 20-credit trial key or upgrade.",
+                trialUrl: `${SERVER_URL}/checkout?plan=trial`,
+                checkoutUrl: `${SERVER_URL}/checkout?plan=pro`
+              }, null, 2)
+            }
+          ]
+        }
+      });
+    }
   }
 
   try {
