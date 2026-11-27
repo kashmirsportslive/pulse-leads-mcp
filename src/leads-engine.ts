@@ -139,6 +139,7 @@ export async function queryLeads(industryFilter?: string, minIntent: number = 70
   const staticMatches = LEADS_DATABASE.filter((lead) => {
     const matchesIndustry =
       !normalizedFilter ||
+      lead.domain.toLowerCase().includes(normalizedFilter) ||
       lead.industry.toLowerCase().includes(normalizedFilter) ||
       lead.company.toLowerCase().includes(normalizedFilter) ||
       lead.recentHiringTrigger.toLowerCase().includes(normalizedFilter);
@@ -198,7 +199,7 @@ export async function queryLeads(industryFilter?: string, minIntent: number = 70
         ...lead,
         emailDeliverable: mx.deliverable,
         mailProvider: mx.provider,
-        outreachHook: `Noticed ${lead.company} is ${lead.recentHiringTrigger.charAt(0).toLowerCase() + lead.recentHiringTrigger.slice(1)} — thought our ${lead.industry} automation workflow could save your ${lead.decisionMakerTitle} team hours each week.`
+        outreachHook: `Noticed ${lead.company} is actively ${lead.recentHiringTrigger.startsWith("AI") ? lead.recentHiringTrigger : lead.recentHiringTrigger.charAt(0).toLowerCase() + lead.recentHiringTrigger.slice(1)} — thought our ${lead.industry} automation workflow could save your ${lead.decisionMakerTitle} team hours each week.`
       };
     })
   );
