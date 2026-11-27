@@ -131,6 +131,37 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["apiKey"]
         }
+      },
+      {
+        name: "get_company_intelligence",
+        description: "Retrieve detailed intelligence, decision-maker email patterns, and hiring triggers for a specific company name or domain.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            apiKey: {
+              type: "string",
+              description: "Customer API key (e.g. 'demo_free_key' or your purchased key)."
+            },
+            companyOrDomain: {
+              type: "string",
+              description: "Target company name or domain (e.g. 'anthropic.com', 'Vercel', 'cloudscale.ai')"
+            }
+          },
+          required: ["apiKey", "companyOrDomain"]
+        }
+      },
+      {
+        name: "get_pricing_and_checkout",
+        description: "Get current PulseLeads pricing tiers, free trial details, checkout links, and Base Mainnet USDC payment instructions. No API key required.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            plan: {
+              type: "string",
+              description: "Optional plan filter: 'trial', 'starter', 'pro', or 'growth'"
+            }
+          }
+        }
       }
     ]
   };
@@ -241,6 +272,90 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
             remainingCredits: remainingAfter,
             count: results.length,
             leads: results
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "get_pricing_and_checkout") {
+    const requestedPlan = args?.plan ? String(args.plan).toLowerCase() : undefined;
+    const plans = [
+      { id: "trial", name: "Free Trial", priceUsd: 0, credits: 20, checkoutUrl: `${SERVER_URL}/checkout?plan=trial` },
+      { id: "starter", name: "Starter", priceUsd: 9, credits: 500, checkoutUrl: `${SERVER_URL}/checkout?plan=starter` },
+      { id: "pro", name: "Pro", priceUsd: 19, credits: 1500, checkoutUrl: `${SERVER_URL}/checkout?plan=pro` },
+      { id: "growth", name: "Growth", priceUsd: 29, credits: 3000, checkoutUrl: `${SERVER_URL}/checkout?plan=growth` }
+    ];
+    const filtered = requestedPlan ? plans.filter((p) => p.id === requestedPlan) : plans;
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            status: "ok",
+            settlementNetwork: "Base Mainnet (EVM 8453)",
+            acceptedAssets: ["USDC (0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913)", "USDbC"],
+            merchantVault: MERCHANT_WALLET,
+            supportEmail: "adammehfuz@gmail.com",
+            plans: filtered.length > 0 ? filtered : plans
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "get_company_intelligence") {
+    const key = String(args?.apiKey || "");
+    const target = String(args?.companyOrDomain || "").trim();
+    const customer = getCustomer(key);
+
+    if (!customer || customer.creditsRemaining <= 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "PaymentRequired",
+              httpCode: 402,
+              message: "Your query credits are exhausted or your API key is invalid.",
+              checkoutUrl: `${SERVER_URL}/checkout?plan=pro`
+            }, null, 2)
+          }
+        ]
+      };
+    }
+
+    if (!target) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: JSON.stringify({ error: "InvalidInput", message: "companyOrDomain is required." }) }]
+      };
+    }
+
+    const results = await queryLeads(target, 0);
+    let remainingAfter = customer.creditsRemaining;
+    if (key !== "demo_free_key" && results.length > 0) {
+      const deduction = deductCredit(key);
+      if (!deduction.success) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: JSON.stringify({ error: "PaymentRequired", httpCode: 402, topUpUrl: `${SERVER_URL}/checkout` }) }]
+        };
+      }
+      remainingAfter = deduction.remaining;
+    }
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            status: "success",
+            query: target,
+            remainingCredits: remainingAfter,
+            count: results.length,
+            matches: results
           }, null, 2)
         }
       ]
@@ -750,7 +865,7 @@ app.get("/mcp", (_req: Request, res: Response) => {
     transport: "streamable-http",
     endpoint: `${SERVER_URL}/mcp`,
     protocolVersion: "2024-11-05",
-    tools: ["find_b2b_prospects", "check_account_credits"]
+    tools: ["find_b2b_prospects", "check_account_credits", "get_company_intelligence", "get_pricing_and_checkout"]
   });
 });
 

@@ -46,6 +46,23 @@ Check current active credits, tier status, and top-up links.
 }
 ```
 
+### `get_company_intelligence`
+Retrieve detailed intelligence, decision-maker email patterns, and hiring triggers for a specific company or domain.
+```json
+{
+  "apiKey": "demo_free_key",
+  "companyOrDomain": "anthropic.com"
+}
+```
+
+### `get_pricing_and_checkout`
+Get live pricing tiers, checkout URLs, and Base Mainnet USDC payment details (no API key required).
+```json
+{
+  "plan": "pro"
+}
+```
+
 ---
 
 ## 📦 One-Click AI Client Installation
