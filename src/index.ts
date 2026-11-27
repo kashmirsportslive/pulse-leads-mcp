@@ -1148,8 +1148,9 @@ app.post("/webhook/card", (req: any, res: Response) => {
     return res.status(503).json({ error: "Card webhook not configured" });
   }
 
-  // Verify HMAC-SHA256 signature (supports X-Signature hex or Polar webhook-signature)
-  const sigHeader = String(req.headers["x-signature"] || req.headers["webhook-signature"] || "").trim();
+  // Verify HMAC-SHA256 signature (supports Lemon Squeezy X-Signature hex and Polar v1,<base64>)
+  const rawSigHeader = String(req.headers["x-signature"] || req.headers["webhook-signature"] || "").trim();
+  const sigHeader = rawSigHeader.startsWith("v1,") ? rawSigHeader.slice(3).trim() : rawSigHeader;
   const expectedHex = crypto.createHmac("sha256", secret).update(req.rawBody).digest("hex");
   const expectedB64 = crypto.createHmac("sha256", secret).update(req.rawBody).digest("base64");
 
