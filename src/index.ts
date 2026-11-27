@@ -11,10 +11,28 @@ import { verifyBaseTransaction } from "./onchain-verifier";
 dotenv.config();
 
 const app = express();
+app.disable("x-powered-by");
 app.set("trust proxy", 1);
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Catch malformed JSON payloads cleanly without leaking Express stack traces
+app.use((err: any, req: Request, res: Response, next: express.NextFunction) => {
+  if (err && err.type === "entity.parse.failed") {
+    if (req.path === "/mcp") {
+      return res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error: Invalid JSON" } });
+    }
+    return res.status(400).json({ error: "Invalid JSON payload" });
+  }
+  next(err);
+});
 
 function getClientIp(req: Request): string {
   const cfIp = req.headers["cf-connecting-ip"];
@@ -535,6 +553,8 @@ app.get("/checkout", (req: Request, res: Response) => {
 });
 
 // Strict Activation handler - ONLY generates key if valid payment proof exists
+const pendingTxVerifications = new Set<string>();
+
 app.post("/verify-payment", async (req: Request, res: Response) => {
   const clientIp = getClientIp(req);
 
@@ -597,8 +617,28 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
     `);
   }
 
-  // Real-time on-chain verification directly on Base blockchain
-  const result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET, selectedPlan);
+  // Real-time on-chain verification directly on Base blockchain (with concurrency lock)
+  if (pendingTxVerifications.has(cleanTx)) {
+    return res.status(409).send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Verification In Progress | PulseLeads</title><style>body{font-family:sans-serif;background:#0b0f19;color:#f1f5f9;padding:40px;text-align:center;}</style></head>
+        <body>
+          <h2 style="color:#eab308;">⏳ Verification Already In Progress</h2>
+          <p>This transaction is currently being verified. Please wait 3 seconds and try again.</p>
+          <br/><a href="/checkout" style="color:#38bdf8;">Back to Checkout</a>
+        </body>
+      </html>
+    `);
+  }
+
+  pendingTxVerifications.add(cleanTx);
+  let result;
+  try {
+    result = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET, selectedPlan);
+  } finally {
+    pendingTxVerifications.delete(cleanTx);
+  }
 
   if (!result.verified) {
     return res.status(400).send(`
