@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
 import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx } from "./billing";
@@ -665,11 +666,46 @@ app.post("/verify-payment", async (req: Request, res: Response) => {
   `);
 });
 
-// MCP JSON-RPC Gateway endpoint (HTTP transport)
+// Lightweight Health Check Endpoint for Render & Uptime Monitors
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    service: "pulse-leads-mcp",
+    version: "1.0.0",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// MCP JSON-RPC Gateway endpoint (Streamable HTTP transport)
 app.post("/mcp", async (req: Request, res: Response) => {
   try {
-    const { method, params, id } = req.body;
-    
+    const { method, id } = req.body || {};
+
+    if (method === "initialize") {
+      return res.json({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: {
+            name: "pulse-leads-mcp",
+            version: "1.0.0"
+          }
+        }
+      });
+    }
+
+    if (method === "notifications/initialized") {
+      return id !== undefined
+        ? res.json({ jsonrpc: "2.0", id, result: {} })
+        : res.status(202).end();
+    }
+
+    if (method === "ping") {
+      return res.json({ jsonrpc: "2.0", id, result: {} });
+    }
+
     if (method === "tools/list") {
       const handler = (mcpServer as any)._requestHandlers.get("tools/list");
       const result = await handler(req.body);
@@ -688,6 +724,14 @@ app.post("/mcp", async (req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[PulseLeads MCP] Server running on http://localhost:${PORT}`);
-});
+if (process.argv.includes("--stdio")) {
+  const transport = new StdioServerTransport();
+  mcpServer.connect(transport).catch((err) => {
+    console.error("[PulseLeads MCP] Stdio error:", err);
+    process.exit(1);
+  });
+} else {
+  app.listen(PORT, () => {
+    console.log(`[PulseLeads MCP] Server running on http://localhost:${PORT}`);
+  });
+}
