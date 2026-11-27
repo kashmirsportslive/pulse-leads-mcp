@@ -36,6 +36,56 @@ const DB_FILE = path.join(__dirname, "../data/keys.json");
 const TRIAL_IPS_FILE = path.join(__dirname, "../data/trial_ips.json");
 const CLAIMED_TX_FILE = path.join(__dirname, "../data/claimed_txs.json");
 
+const UPSTASH_URL = (process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+
+const REDIS_KEYS: Record<string, string> = {
+  [DB_FILE]: "pulse:keys",
+  [TRIAL_IPS_FILE]: "pulse:trial_ips",
+  [CLAIMED_TX_FILE]: "pulse:claimed_txs"
+};
+
+async function upstashCommand(command: unknown[]): Promise<any> {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
+  const res = await fetch(UPSTASH_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${UPSTASH_TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(command)
+  });
+  if (!res.ok) throw new Error(`Upstash HTTP ${res.status}`);
+  const json: any = await res.json();
+  return json.result;
+}
+
+export async function initBillingStore(): Promise<void> {
+  ensureDbExists();
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    return;
+  }
+  for (const [filePath, redisKey] of Object.entries(REDIS_KEYS)) {
+    try {
+      const raw = await upstashCommand(["GET", redisKey]);
+      if (typeof raw === "string" && raw.trim().startsWith("{")) {
+        const parsed = JSON.parse(raw);
+        if (filePath === DB_FILE && parsed["premium_partner_key"]) {
+          delete parsed["premium_partner_key"];
+        }
+        writeLocalOnly(filePath, parsed);
+      } else {
+        // Seed Redis with initial local state if empty
+        const localRaw = fs.readFileSync(filePath, "utf-8");
+        await upstashCommand(["SET", redisKey, localRaw]);
+      }
+    } catch (err: any) {
+      console.error(`[PulseLeads Billing] Upstash sync error for ${redisKey}:`, err.message);
+    }
+  }
+  console.log("[PulseLeads Billing] Persistent Upstash Redis store synchronized.");
+}
+
 const KEY_SIGNING_SECRET = (() => {
   if (process.env.KEY_SIGNING_SECRET && process.env.KEY_SIGNING_SECRET.length >= 16) {
     return process.env.KEY_SIGNING_SECRET;
@@ -52,8 +102,7 @@ const PLAN_CREDITS: Record<string, number> = {
   growth: 3000
 };
 
-// Atomic file write helper to prevent partial writes / file corruption on crashes
-function atomicWriteJson(filePath: string, data: unknown): void {
+function writeLocalOnly(filePath: string, data: unknown): void {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -65,6 +114,17 @@ function atomicWriteJson(filePath: string, data: unknown): void {
   } catch {
     fs.copyFileSync(tempPath, filePath);
     try { fs.unlinkSync(tempPath); } catch {}
+  }
+}
+
+// Atomic file write helper + background sync to Upstash Redis when configured
+function atomicWriteJson(filePath: string, data: unknown): void {
+  writeLocalOnly(filePath, data);
+  const redisKey = REDIS_KEYS[filePath];
+  if (redisKey && UPSTASH_URL && UPSTASH_TOKEN) {
+    upstashCommand(["SET", redisKey, JSON.stringify(data)]).catch((err) => {
+      console.error(`[PulseLeads Billing] Upstash write failed for ${redisKey}:`, err.message);
+    });
   }
 }
 

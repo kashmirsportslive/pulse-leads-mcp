@@ -5,7 +5,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { queryLeads } from "./leads-engine";
-import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx, generateSignedPaidKey } from "./billing";
+import { getCustomer, deductCredit, registerKey, claimOrGetTrialKey, getClaimedTx, recordClaimedTx, generateSignedPaidKey, initBillingStore } from "./billing";
 import { verifyBaseTransaction } from "./onchain-verifier";
 
 dotenv.config();
@@ -1135,14 +1135,19 @@ app.post("/mcp", async (req: Request, res: Response) => {
   }
 });
 
-if (process.argv.includes("--stdio") || process.env.MCP_TRANSPORT === "stdio") {
-  const transport = new StdioServerTransport();
-  mcpServer.connect(transport).catch((err) => {
-    console.error("[PulseLeads MCP] Stdio error:", err);
-    process.exit(1);
-  });
-} else {
-  app.listen(PORT, () => {
-    console.log(`[PulseLeads MCP] Server running on http://localhost:${PORT}`);
-  });
+async function start() {
+  await initBillingStore();
+  if (process.argv.includes("--stdio") || process.env.MCP_TRANSPORT === "stdio") {
+    const transport = new StdioServerTransport();
+    await mcpServer.connect(transport);
+  } else {
+    app.listen(PORT, () => {
+      console.log(`[PulseLeads MCP] Server running on http://localhost:${PORT}`);
+    });
+  }
 }
+
+start().catch((err) => {
+  console.error("[PulseLeads MCP] Startup error:", err);
+  process.exit(1);
+});
