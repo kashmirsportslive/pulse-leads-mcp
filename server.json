@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.kashmirsportslive/pulse-leads-mcp",
   "title": "PulseLeads MCP",
-  "description": "High-intent B2B prospect intelligence MCP server exposing verified decision-maker contacts, tech stacks, hiring triggers, and autonomous Base USDC settlement.",
+  "description": "High-intent B2B prospect intelligence MCP server with verified contacts & Base USDC billing.",
   "version": "1.0.0",
   "websiteUrl": "https://pulse-leads-mcp.onrender.com",
   "repository": {
