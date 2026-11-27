@@ -63,6 +63,15 @@ Get live pricing tiers, checkout URLs, and Base Mainnet USDC payment details (no
 }
 ```
 
+### `verify_usdc_payment`
+Verify a Base Mainnet USDC transaction hash on-chain and receive your active API key directly inside your AI agent.
+```json
+{
+  "txHash": "0x...",
+  "plan": "pro"
+}
+```
+
 ---
 
 ## 📦 One-Click AI Client Installation

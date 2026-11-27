@@ -162,6 +162,28 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           }
         }
+      },
+      {
+        name: "verify_usdc_payment",
+        description: "Verify a Base Mainnet USDC transaction hash on-chain and immediately provision an active PulseLeads API key.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            txHash: {
+              type: "string",
+              description: "66-character Base Mainnet transaction hash starting with 0x"
+            },
+            plan: {
+              type: "string",
+              description: "Target plan: 'starter' ($9 / 500 credits), 'pro' ($19 / 1500 credits), or 'growth' ($29 / 3000 credits)"
+            },
+            email: {
+              type: "string",
+              description: "Optional work email for receipt tracking"
+            }
+          },
+          required: ["txHash"]
+        }
       }
     ]
   };
@@ -356,6 +378,106 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
             remainingCredits: remainingAfter,
             count: results.length,
             matches: results
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (name === "verify_usdc_payment") {
+    const cleanTx = String(args?.txHash || "").trim().toLowerCase();
+    const selectedPlan = String(args?.plan || "pro").toLowerCase();
+    const safeEmail = escapeHtml(String(args?.email || "agent@mcp").slice(0, 120));
+
+    if (!cleanTx) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: JSON.stringify({ error: "InvalidInput", message: "txHash is required." }) }]
+      };
+    }
+
+    const alreadyClaimed = getClaimedTx(cleanTx);
+    if (alreadyClaimed) {
+      const existingCustomer = getCustomer(alreadyClaimed.key);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              status: "already_redeemed",
+              apiKey: alreadyClaimed.key,
+              plan: alreadyClaimed.plan,
+              creditsRemaining: existingCustomer ? existingCustomer.creditsRemaining : 0,
+              message: "This transaction was already verified. Returning the original active API key."
+            }, null, 2)
+          }
+        ]
+      };
+    }
+
+    if (pendingTxVerifications.has(cleanTx)) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: JSON.stringify({ error: "Conflict", message: "Verification already in progress for this txHash. Retry in 3 seconds." }) }]
+      };
+    }
+
+    pendingTxVerifications.add(cleanTx);
+    let verification;
+    try {
+      verification = await verifyBaseTransaction(cleanTx, MERCHANT_WALLET, selectedPlan);
+    } finally {
+      pendingTxVerifications.delete(cleanTx);
+    }
+
+    if (!verification.verified) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              error: "VerificationFailed",
+              reason: verification.reason,
+              merchantVault: MERCHANT_WALLET
+            }, null, 2)
+          }
+        ]
+      };
+    }
+
+    const grantedPlan = verification.matchedPlan || "pro";
+    const grantedCredits = verification.grantedCredits || 1500;
+    const newPaidKey = generateSignedPaidKey(grantedPlan, cleanTx);
+
+    registerKey({
+      key: newPaidKey,
+      plan: grantedPlan,
+      creditsRemaining: grantedCredits,
+      createdAt: new Date().toISOString()
+    });
+
+    recordClaimedTx({
+      txHash: cleanTx,
+      key: newPaidKey,
+      plan: grantedPlan,
+      amountUsdc: verification.paidAmountUsdc || 0,
+      creditsGranted: grantedCredits,
+      claimedAt: new Date().toISOString(),
+      email: safeEmail
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            status: "verified",
+            apiKey: newPaidKey,
+            plan: grantedPlan,
+            creditsGranted: grantedCredits,
+            paidAmountUsdc: verification.paidAmountUsdc,
+            blockNumber: verification.blockNumber
           }, null, 2)
         }
       ]
@@ -865,7 +987,7 @@ app.get("/mcp", (_req: Request, res: Response) => {
     transport: "streamable-http",
     endpoint: `${SERVER_URL}/mcp`,
     protocolVersion: "2024-11-05",
-    tools: ["find_b2b_prospects", "check_account_credits", "get_company_intelligence", "get_pricing_and_checkout"]
+    tools: ["find_b2b_prospects", "check_account_credits", "get_company_intelligence", "get_pricing_and_checkout", "verify_usdc_payment"]
   });
 });
 
